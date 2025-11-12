@@ -127,12 +127,17 @@ export function resolveStyle(
     const baseStyle = resolveStyle(style.basedOn, styles)
     if (baseStyle) {
       // Merge with precedence: current style overrides base
+      // But only override heading properties if they're explicitly set
       return {
         ...baseStyle,
         ...style,
         // Keep original IDs
         styleId: style.styleId,
         name: style.name,
+        // Inherit heading properties from base if not explicitly set in current style
+        isHeading: style.outlineLevel !== null ? style.isHeading : baseStyle.isHeading,
+        headingLevel:
+          style.outlineLevel !== null ? style.headingLevel : baseStyle.headingLevel,
       }
     }
   }
