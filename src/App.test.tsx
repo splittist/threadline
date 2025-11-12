@@ -8,14 +8,21 @@ describe('App', () => {
     expect(screen.getByText('Threadline')).toBeInTheDocument()
   })
 
-  it('displays the welcome message', () => {
+  it('displays the tagline', () => {
     render(<App />)
-    expect(screen.getByText('Welcome to Threadline')).toBeInTheDocument()
+    expect(
+      screen.getByText('Bringing clarity to the chaos of redlines.')
+    ).toBeInTheDocument()
   })
 
-  it('shows the technology stack list', () => {
+  it('shows Phase 1.2 implementation features', () => {
     render(<App />)
-    expect(screen.getByText(/Vite \+ TypeScript \+ React/i)).toBeInTheDocument()
-    expect(screen.getByText(/Tailwind CSS for styling/i)).toBeInTheDocument()
+    expect(
+      screen.getByText('Phase 1.2: DOCX Structure Extraction')
+    ).toBeInTheDocument()
+    expect(
+      screen.getByText(/Web Worker for non-blocking DOCX parsing/i)
+    ).toBeInTheDocument()
+    expect(screen.getByText(/SHA-256 document hashing/i)).toBeInTheDocument()
   })
 })

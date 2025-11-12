@@ -58,6 +58,7 @@ export function FileUpload() {
           file,
           name: file.name,
           size: file.size,
+          status: 'pending',
         })
       }
     })
