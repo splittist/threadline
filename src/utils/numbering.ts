@@ -2,58 +2,91 @@
  * Utilities for parsing DOCX numbering.xml
  */
 
+import { XMLParser } from 'fast-xml-parser'
 import type { NumberingDefinition, NumberingLevel } from '../types/docx'
+
+// Type definitions for XML parsed structures
+interface XmlElement {
+  [key: string]: unknown
+}
 
 /**
  * Parse numbering.xml content and extract numbering definitions
  */
 export function parseNumbering(numberingXml: string): Map<string, NumberingDefinition> {
-  const parser = new DOMParser()
-  const doc = parser.parseFromString(numberingXml, 'text/xml')
   const numberings = new Map<string, NumberingDefinition>()
 
-  // Check for parsing errors
-  const parserError = doc.querySelector('parsererror')
-  if (parserError) {
-    console.error('Error parsing numbering.xml:', parserError.textContent)
+  if (!numberingXml || numberingXml.trim() === '') {
     return numberings
   }
 
-  // First, parse abstract numbering definitions
-  const abstractNums = new Map<string, NumberingLevel[]>()
-  const abstractNumElements = doc.querySelectorAll('w\\:abstractNum, abstractNum')
-
-  abstractNumElements.forEach((abstractNumEl) => {
-    const abstractNumId =
-      abstractNumEl.getAttribute('w:abstractNumId') || abstractNumEl.getAttribute('abstractNumId')
-    if (!abstractNumId) return
-
-    const levels = parseLevels(abstractNumEl)
-    abstractNums.set(abstractNumId, levels)
-  })
-
-  // Then, parse numbering instances that reference abstract numberings
-  const numElements = doc.querySelectorAll('w\\:num, num')
-
-  numElements.forEach((numEl) => {
-    const numId = numEl.getAttribute('w:numId') || numEl.getAttribute('numId')
-    if (!numId) return
-
-    // Get the abstract numbering ID this references
-    const abstractNumIdEl = numEl.querySelector('w\\:abstractNumId, abstractNumId')
-    const abstractNumId =
-      abstractNumIdEl?.getAttribute('w:val') || abstractNumIdEl?.getAttribute('val')
-
-    if (!abstractNumId) return
-
-    const levels = abstractNums.get(abstractNumId) || []
-
-    numberings.set(numId, {
-      abstractNumId,
-      numId,
-      levels,
+  try {
+    const parser = new XMLParser({
+      ignoreAttributes: false,
+      attributeNamePrefix: '@_',
+      removeNSPrefix: true, // Remove namespace prefixes like 'w:'
+      parseAttributeValue: false, // Keep attribute values as strings
+      parseTagValue: false, // Keep tag values as strings
     })
-  })
+
+    const result = parser.parse(numberingXml) as XmlElement
+
+    // Navigate to the numbering element
+    const numberingElement = result?.numbering as XmlElement | undefined
+    if (!numberingElement) {
+      return numberings
+    }
+
+    // First, parse abstract numbering definitions
+    const abstractNums = new Map<string, NumberingLevel[]>()
+    let abstractNumElements = numberingElement.abstractNum as XmlElement[] | XmlElement | undefined
+
+    if (abstractNumElements) {
+      // Ensure it's an array
+      if (!Array.isArray(abstractNumElements)) {
+        abstractNumElements = [abstractNumElements]
+      }
+
+      abstractNumElements.forEach((abstractNumEl: XmlElement) => {
+        const abstractNumId = abstractNumEl['@_abstractNumId'] as string | undefined
+        if (!abstractNumId) return
+
+        const levels = parseLevels(abstractNumEl)
+        abstractNums.set(abstractNumId, levels)
+      })
+    }
+
+    // Then, parse numbering instances that reference abstract numberings
+    let numElements = numberingElement.num as XmlElement[] | XmlElement | undefined
+
+    if (numElements) {
+      // Ensure it's an array
+      if (!Array.isArray(numElements)) {
+        numElements = [numElements]
+      }
+
+      numElements.forEach((numEl: XmlElement) => {
+        const numId = numEl['@_numId'] as string | undefined
+        if (!numId) return
+
+        // Get the abstract numbering ID this references
+        const abstractNumIdEl = numEl.abstractNumId as XmlElement | undefined
+        const abstractNumId = abstractNumIdEl?.['@_val'] as string | undefined
+
+        if (!abstractNumId) return
+
+        const levels = abstractNums.get(abstractNumId) || []
+
+        numberings.set(numId, {
+          abstractNumId,
+          numId,
+          levels,
+        })
+      })
+    }
+  } catch (error) {
+    console.error('Error parsing numbering.xml:', error instanceof Error ? error.message : error)
+  }
 
   return numberings
 }
@@ -61,29 +94,36 @@ export function parseNumbering(numberingXml: string): Map<string, NumberingDefin
 /**
  * Parse level definitions from an abstract numbering or numbering element
  */
-function parseLevels(parent: Element): NumberingLevel[] {
+function parseLevels(parent: XmlElement): NumberingLevel[] {
   const levels: NumberingLevel[] = []
-  const lvlElements = parent.querySelectorAll('w\\:lvl, lvl')
 
-  lvlElements.forEach((lvlEl) => {
-    const levelAttr = lvlEl.getAttribute('w:ilvl') || lvlEl.getAttribute('ilvl')
-    if (levelAttr === null) return
+  let lvlElements = parent.lvl as XmlElement[] | XmlElement | undefined
+  if (!lvlElements) {
+    return levels
+  }
+
+  // Ensure it's an array
+  if (!Array.isArray(lvlElements)) {
+    lvlElements = [lvlElements]
+  }
+
+  lvlElements.forEach((lvlEl: XmlElement) => {
+    const levelAttr = lvlEl['@_ilvl'] as string | undefined
+    if (levelAttr === null || levelAttr === undefined) return
 
     const level = parseInt(levelAttr)
 
     // Get number format
-    const numFmtEl = lvlEl.querySelector('w\\:numFmt, numFmt')
-    const format = numFmtEl?.getAttribute('w:val') || numFmtEl?.getAttribute('val') || 'decimal'
+    const numFmtEl = lvlEl.numFmt as XmlElement | undefined
+    const format = (numFmtEl?.['@_val'] as string | undefined) || 'decimal'
 
     // Get level text (e.g., "%1.", "%1.%2.", etc.)
-    const lvlTextEl = lvlEl.querySelector('w\\:lvlText, lvlText')
-    const levelText = lvlTextEl?.getAttribute('w:val') || lvlTextEl?.getAttribute('val') || ''
+    const lvlTextEl = lvlEl.lvlText as XmlElement | undefined
+    const levelText = (lvlTextEl?.['@_val'] as string | undefined) || ''
 
     // Get start value
-    const startEl = lvlEl.querySelector('w\\:start, start')
-    const start = startEl
-      ? parseInt(startEl.getAttribute('w:val') || startEl.getAttribute('val') || '1')
-      : 1
+    const startEl = lvlEl.start as XmlElement | undefined
+    const start = startEl ? parseInt((startEl['@_val'] as string | undefined) || '1') : 1
 
     levels.push({
       level,
