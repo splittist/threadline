@@ -1,9 +1,14 @@
 import { DocumentTextIcon } from '@heroicons/react/24/outline'
 import { FileUpload } from './components/FileUpload'
+import { DocumentParser } from './components/DocumentParser'
+import { ParsedDocumentList } from './components/ParsedDocumentList'
 
 function App() {
   return (
     <div className="min-h-screen bg-gray-50">
+      {/* Document Parser - runs in background */}
+      <DocumentParser />
+
       <div className="container mx-auto px-4 py-8">
         <div className="flex items-center gap-3 mb-8">
           <DocumentTextIcon className="h-10 w-10 text-blue-600" />
@@ -18,24 +23,27 @@ function App() {
           <FileUpload />
         </div>
 
+        {/* Parsed Documents Display */}
+        <div className="mb-8">
+          <ParsedDocumentList />
+        </div>
+
         <div className="bg-white rounded-lg shadow-md p-6">
           <h2 className="text-2xl font-semibold text-gray-800 mb-4">
-            Welcome to Threadline
+            Phase 1.2: DOCX Structure Extraction
           </h2>
-          <p className="text-gray-600">
-            This application is built with:
+          <p className="text-gray-600 mb-4">
+            This implementation includes:
           </p>
           <ul className="list-disc list-inside mt-4 space-y-2 text-gray-700">
-            <li>Vite + TypeScript + React</li>
-            <li>Tailwind CSS for styling</li>
-            <li>Zustand for state management</li>
-            <li>Headless UI + Heroicons for UI components</li>
-            <li>JSZip & docx-preview for DOCX manipulation</li>
-            <li>idb for IndexedDB storage</li>
-            <li>Vitest + React Testing Library for testing</li>
-            <li>ESLint with security plugin + Prettier</li>
-            <li>DOMPurify for security</li>
-            <li>react-window for performance</li>
+            <li>Web Worker for non-blocking DOCX parsing</li>
+            <li>Extraction of document.xml, styles.xml, and numbering.xml</li>
+            <li>Parsing of OOXML structure (paragraphs, sections, text runs)</li>
+            <li>Style resolution to identify heading levels</li>
+            <li>Numbering parsing for automatic numbering</li>
+            <li>Heading hierarchy building with clause paths</li>
+            <li>SHA-256 document hashing for identity</li>
+            <li>Zustand state management for parsed documents</li>
           </ul>
         </div>
       </div>

@@ -18,6 +18,44 @@ export async function readDocumentXml(file: File): Promise<string> {
 }
 
 /**
+ * Reads the styles.xml from a DOCX file
+ */
+export async function readStylesXml(zip: JSZip): Promise<string> {
+  const stylesXml = await zip.file('word/styles.xml')?.async('text')
+  return stylesXml || ''
+}
+
+/**
+ * Reads the numbering.xml from a DOCX file
+ */
+export async function readNumberingXml(zip: JSZip): Promise<string> {
+  const numberingXml = await zip.file('word/numbering.xml')?.async('text')
+  return numberingXml || ''
+}
+
+/**
+ * Extract all necessary XML files from DOCX
+ */
+export async function extractDocxContent(
+  file: File
+): Promise<{
+  documentXml: string
+  stylesXml: string
+  numberingXml: string
+}> {
+  const zip = await extractDocx(file)
+  const documentXml = await zip.file('word/document.xml')?.async('text')
+  const stylesXml = await zip.file('word/styles.xml')?.async('text')
+  const numberingXml = await zip.file('word/numbering.xml')?.async('text')
+
+  return {
+    documentXml: documentXml || '',
+    stylesXml: stylesXml || '',
+    numberingXml: numberingXml || '',
+  }
+}
+
+/**
  * Check if File System Access API is supported
  */
 export function isFileSystemAccessSupported(): boolean {
