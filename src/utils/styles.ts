@@ -2,60 +2,91 @@
  * Utilities for parsing DOCX styles.xml
  */
 
+import { XMLParser } from 'fast-xml-parser'
 import type { StyleDefinition } from '../types/docx'
+
+// Type definitions for XML parsed structures
+interface XmlElement {
+  [key: string]: unknown
+}
 
 /**
  * Parse styles.xml content and extract style definitions
  */
 export function parseStyles(stylesXml: string): Map<string, StyleDefinition> {
-  const parser = new DOMParser()
-  const doc = parser.parseFromString(stylesXml, 'text/xml')
   const styles = new Map<string, StyleDefinition>()
 
-  // Check for parsing errors
-  const parserError = doc.querySelector('parsererror')
-  if (parserError) {
-    console.error('Error parsing styles.xml:', parserError.textContent)
+  if (!stylesXml || stylesXml.trim() === '') {
     return styles
   }
 
-  // Get all style elements
-  const styleElements = doc.querySelectorAll('w\\:style, style')
-
-  styleElements.forEach((styleEl) => {
-    const styleId = styleEl.getAttribute('w:styleId') || styleEl.getAttribute('styleId')
-    if (!styleId) return
-
-    const type = styleEl.getAttribute('w:type') || styleEl.getAttribute('type') || 'paragraph'
-
-    // Get style name
-    const nameEl = styleEl.querySelector('w\\:name, name')
-    const name = nameEl?.getAttribute('w:val') || nameEl?.getAttribute('val') || styleId
-
-    // Get basedOn (parent style)
-    const basedOnEl = styleEl.querySelector('w\\:basedOn, basedOn')
-    const basedOn = basedOnEl?.getAttribute('w:val') || basedOnEl?.getAttribute('val') || null
-
-    // Get outline level (pPr > outlineLvl)
-    const outlineLvlEl = styleEl.querySelector('w\\:pPr w\\:outlineLvl, pPr outlineLvl')
-    const outlineLevel = outlineLvlEl
-      ? parseInt(outlineLvlEl.getAttribute('w:val') || outlineLvlEl.getAttribute('val') || '-1')
-      : null
-
-    // Determine if this is a heading style
-    const isHeading = isHeadingStyle(name, styleId, outlineLevel)
-    const headingLevel = isHeading ? getHeadingLevel(name, styleId, outlineLevel) : null
-
-    styles.set(styleId, {
-      styleId,
-      name,
-      type,
-      basedOn,
-      isHeading,
-      headingLevel,
-      outlineLevel,
+  try {
+    const parser = new XMLParser({
+      ignoreAttributes: false,
+      attributeNamePrefix: '@_',
+      removeNSPrefix: true, // Remove namespace prefixes like 'w:'
+      parseAttributeValue: false, // Keep attribute values as strings
+      parseTagValue: false, // Keep tag values as strings
     })
-  })
+
+    const result = parser.parse(stylesXml) as XmlElement
+
+    // Navigate to the styles element
+    const stylesElement = result?.styles as XmlElement | undefined
+    if (!stylesElement) {
+      return styles
+    }
+
+    // Get all style elements - could be a single object or array
+    let styleElements = stylesElement.style as XmlElement[] | XmlElement | undefined
+    if (!styleElements) {
+      return styles
+    }
+
+    // Ensure it's an array
+    if (!Array.isArray(styleElements)) {
+      styleElements = [styleElements]
+    }
+
+    // Process each style element
+    styleElements.forEach((styleEl: XmlElement) => {
+      const styleId = styleEl['@_styleId'] as string | undefined
+      if (!styleId) return
+
+      const type = (styleEl['@_type'] as string | undefined) || 'paragraph'
+
+      // Get style name
+      const nameEl = styleEl.name as XmlElement | undefined
+      const name = (nameEl?.['@_val'] as string | undefined) || styleId
+
+      // Get basedOn (parent style)
+      const basedOnEl = styleEl.basedOn as XmlElement | undefined
+      const basedOn = (basedOnEl?.['@_val'] as string | undefined) || null
+
+      // Get outline level (pPr > outlineLvl)
+      const pPr = styleEl.pPr as XmlElement | undefined
+      const outlineLvlEl = pPr?.outlineLvl as XmlElement | undefined
+      const outlineLevel = outlineLvlEl
+        ? parseInt((outlineLvlEl['@_val'] as string | undefined) || '-1')
+        : null
+
+      // Determine if this is a heading style
+      const isHeading = isHeadingStyle(name, styleId, outlineLevel)
+      const headingLevel = isHeading ? getHeadingLevel(name, styleId, outlineLevel) : null
+
+      styles.set(styleId, {
+        styleId,
+        name,
+        type,
+        basedOn,
+        isHeading,
+        headingLevel,
+        outlineLevel,
+      })
+    })
+  } catch (error) {
+    console.error('Error parsing styles.xml:', error instanceof Error ? error.message : error)
+  }
 
   return styles
 }
