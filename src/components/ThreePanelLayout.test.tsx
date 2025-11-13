@@ -46,7 +46,7 @@ describe('ThreePanelLayout', () => {
 
   it('displays thread when one is created', () => {
     // Create a thread
-    const thread = useStore.getState().createThread({
+    useStore.getState().createThread({
       title: 'Test Thread',
       userTopic: 'Test Topic',
       suggestedTopic: null,
