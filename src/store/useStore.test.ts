@@ -498,4 +498,182 @@ describe('Phase 1.4 Data Model - Store', () => {
       expect(parsed.threads).toHaveLength(1)
     })
   })
+
+  describe('Phase 2.1 - Clustering', () => {
+    it('should add a bucket', () => {
+      const bucket = {
+        bucketId: 'bucket_001',
+        suggestedTopic: 'Force Majeure',
+        keywords: ['force', 'majeure', 'event'],
+        changeIds: ['chg_001', 'chg_002'],
+        confidence: 0.85,
+        method: 'clause-path' as const,
+        createdAt: '2025-11-13T12:00:00Z',
+      }
+
+      useStore.getState().addBucket(bucket)
+
+      const retrieved = useStore.getState().getBucket('bucket_001')
+      expect(retrieved).toEqual(bucket)
+    })
+
+    it('should add multiple buckets', () => {
+      const buckets = [
+        {
+          bucketId: 'bucket_001',
+          suggestedTopic: 'Force Majeure',
+          keywords: ['force', 'majeure'],
+          changeIds: ['chg_001'],
+          confidence: 0.85,
+          method: 'clause-path' as const,
+          createdAt: '2025-11-13T12:00:00Z',
+        },
+        {
+          bucketId: 'bucket_002',
+          suggestedTopic: 'Payment Terms',
+          keywords: ['payment', 'terms'],
+          changeIds: ['chg_002'],
+          confidence: 0.75,
+          method: 'keyword' as const,
+          createdAt: '2025-11-13T12:00:00Z',
+        },
+      ]
+
+      useStore.getState().addBuckets(buckets)
+
+      const allBuckets = useStore.getState().getAllBuckets()
+      expect(allBuckets).toHaveLength(2)
+    })
+
+    it('should remove a bucket', () => {
+      const bucket = {
+        bucketId: 'bucket_001',
+        suggestedTopic: 'Test',
+        keywords: [],
+        changeIds: [],
+        confidence: 0.5,
+        method: 'clause-path' as const,
+        createdAt: '2025-11-13T12:00:00Z',
+      }
+
+      useStore.getState().addBucket(bucket)
+      expect(useStore.getState().getBucket('bucket_001')).toBeDefined()
+
+      useStore.getState().removeBucket('bucket_001')
+      expect(useStore.getState().getBucket('bucket_001')).toBeUndefined()
+    })
+
+    it('should clear all buckets', () => {
+      const buckets = [
+        {
+          bucketId: 'bucket_001',
+          suggestedTopic: 'Test 1',
+          keywords: [],
+          changeIds: [],
+          confidence: 0.5,
+          method: 'clause-path' as const,
+          createdAt: '2025-11-13T12:00:00Z',
+        },
+        {
+          bucketId: 'bucket_002',
+          suggestedTopic: 'Test 2',
+          keywords: [],
+          changeIds: [],
+          confidence: 0.5,
+          method: 'clause-path' as const,
+          createdAt: '2025-11-13T12:00:00Z',
+        },
+      ]
+
+      useStore.getState().addBuckets(buckets)
+      expect(useStore.getState().getAllBuckets()).toHaveLength(2)
+
+      useStore.getState().clearBuckets()
+      expect(useStore.getState().getAllBuckets()).toHaveLength(0)
+    })
+
+    it('should set clustering status', () => {
+      expect(useStore.getState().clusteringStatus).toBe('idle')
+
+      useStore.getState().setClusteringStatus('clustering')
+      expect(useStore.getState().clusteringStatus).toBe('clustering')
+      expect(useStore.getState().clusteringError).toBeNull()
+
+      useStore.getState().setClusteringStatus('error', 'Test error')
+      expect(useStore.getState().clusteringStatus).toBe('error')
+      expect(useStore.getState().clusteringError).toBe('Test error')
+    })
+
+    it('should apply clustering result', () => {
+      // Add some changes first
+      const changes = [
+        {
+          changeId: 'chg_001',
+          docId: 'doc_001',
+          type: 'insertion' as const,
+          author: 'Author 1',
+          timestamp: '2025-11-13T12:00:00Z',
+          clausePath: ['8', 'Termination'],
+          textBefore: 'before',
+          changedText: 'Force Majeure',
+          textAfter: 'after',
+          threadId: null,
+          suggestedThread: null,
+        },
+        {
+          changeId: 'chg_002',
+          docId: 'doc_001',
+          type: 'insertion' as const,
+          author: 'Author 1',
+          timestamp: '2025-11-13T12:00:00Z',
+          clausePath: ['8', 'Termination'],
+          textBefore: 'before',
+          changedText: 'Force Majeure event',
+          textAfter: 'after',
+          threadId: null,
+          suggestedThread: null,
+        },
+      ]
+
+      useStore.getState().addChanges(changes)
+
+      // Apply clustering result
+      const result = {
+        buckets: [
+          {
+            bucketId: 'bucket_001',
+            suggestedTopic: 'Force Majeure',
+            keywords: ['force', 'majeure'],
+            changeIds: ['chg_001', 'chg_002'],
+            confidence: 0.9,
+            method: 'clause-path' as const,
+            createdAt: '2025-11-13T12:00:00Z',
+          },
+        ],
+        assignedChangeIds: ['chg_001', 'chg_002'],
+        unassignedChangeIds: [],
+        stats: {
+          totalChanges: 2,
+          totalBuckets: 1,
+          averageChangesPerBucket: 2,
+          averageConfidence: 0.9,
+        },
+      }
+
+      useStore.getState().applyClusteringResult(result)
+
+      // Verify buckets were added
+      expect(useStore.getState().getAllBuckets()).toHaveLength(1)
+
+      // Verify changes were updated with suggested topics
+      const change1 = useStore.getState().getChange('chg_001')
+      const change2 = useStore.getState().getChange('chg_002')
+      expect(change1?.suggestedThread).toBe('Force Majeure')
+      expect(change2?.suggestedThread).toBe('Force Majeure')
+
+      // Verify status was updated
+      expect(useStore.getState().clusteringStatus).toBe('complete')
+      expect(useStore.getState().clusteringError).toBeNull()
+    })
+  })
 })
