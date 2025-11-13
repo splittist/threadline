@@ -14,6 +14,7 @@ import { parseNumbering } from '../utils/numbering'
 import { parseDocumentXml } from '../utils/documentParser'
 import { buildHeadingHierarchy } from '../utils/headingHierarchy'
 import { computeDocumentHash, getISOTimestamp } from '../utils/documentId'
+import { extractTrackedChanges } from '../utils/trackedChanges'
 
 self.onmessage = async (event: MessageEvent<DocumentWorkerMessage>) => {
   const { type, data } = event.data
@@ -60,6 +61,9 @@ async function parseDocument(
     // Build heading hierarchy and clause paths
     const headings = buildHeadingHierarchy(hierarchy.paragraphs, numberings)
 
+    // Extract tracked changes
+    const changes = extractTrackedChanges(documentXml, fileId, hierarchy.paragraphs, headings)
+
     // Compute document hash
     const hash = await computeDocumentHash(documentXml)
 
@@ -72,6 +76,7 @@ async function parseDocument(
       parsedAt: getISOTimestamp(),
       hierarchy,
       headings,
+      changes,
     }
 
     // Send result back to main thread

@@ -20,6 +20,8 @@ export interface ParsedDocument {
   hierarchy: DocumentHierarchy
   /** Heading structure for clause paths */
   headings: HeadingNode[]
+  /** Tracked changes extracted from document */
+  changes: TrackedChange[]
 }
 
 /**
@@ -154,6 +156,39 @@ export interface NumberingLevel {
   levelText: string
   /** Start value */
   start: number
+}
+
+/**
+ * Type of tracked change
+ */
+export type ChangeType = 'insertion' | 'deletion' | 'moveFrom' | 'moveTo'
+
+/**
+ * Tracked change in a document
+ */
+export interface TrackedChange {
+  /** Unique change identifier (docId + changeId) */
+  changeId: string
+  /** Document ID this change belongs to */
+  docId: string
+  /** Type of change */
+  type: ChangeType
+  /** Author of the change */
+  author: string
+  /** Timestamp of the change (ISO 8601) */
+  timestamp: string
+  /** Original change ID from OOXML (w:id attribute) */
+  originalId: string
+  /** Changed text content */
+  changedText: string
+  /** Text before the change (context window) */
+  textBefore: string
+  /** Text after the change (context window) */
+  textAfter: string
+  /** Clause path where change occurs */
+  clausePath: string[]
+  /** Paragraph ID where change is located */
+  paragraphId: string
 }
 
 /**
