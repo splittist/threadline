@@ -1,6 +1,7 @@
 import { create } from 'zustand'
 import type { ParsedDocument } from '../types/docx'
 import type { Document, Change, Thread, ThreadStatus, ThreadNote, SelectionState } from '../types/dataModel'
+import type { Bucket, ClusteringResult } from '../types/clustering'
 
 export interface DocumentFile {
   id: string
@@ -43,6 +44,25 @@ interface AppState {
   threads: Map<string, Thread>
   /** Selection state for UI */
   selection: SelectionState
+
+  // --- Phase 2.1: Clustering ---
+  
+  /** Suggested buckets from clustering */
+  buckets: Map<string, Bucket>
+  /** Clustering status */
+  clusteringStatus: 'idle' | 'clustering' | 'complete' | 'error'
+  /** Clustering error message */
+  clusteringError: string | null
+
+  // Bucket management actions
+  addBucket: (bucket: Bucket) => void
+  addBuckets: (buckets: Bucket[]) => void
+  removeBucket: (bucketId: string) => void
+  getBucket: (bucketId: string) => Bucket | undefined
+  getAllBuckets: () => Bucket[]
+  clearBuckets: () => void
+  setClusteringStatus: (status: AppState['clusteringStatus'], error?: string) => void
+  applyClusteringResult: (result: ClusteringResult) => void
 
   // Document management actions
   addNormalizedDocument: (doc: Document) => void
@@ -127,6 +147,80 @@ export const useStore = create<AppState>((set, get) => ({
     selectedChangeIds: new Set(),
     activeDocumentId: null,
   },
+
+  // --- Phase 2.1: Clustering Implementation ---
+  
+  buckets: new Map(),
+  clusteringStatus: 'idle',
+  clusteringError: null,
+
+  // Bucket management
+  addBucket: (bucket) =>
+    set((state) => {
+      const newBuckets = new Map(state.buckets)
+      newBuckets.set(bucket.bucketId, bucket)
+      return { buckets: newBuckets }
+    }),
+
+  addBuckets: (buckets) =>
+    set((state) => {
+      const newBuckets = new Map(state.buckets)
+      buckets.forEach((bucket) => {
+        newBuckets.set(bucket.bucketId, bucket)
+      })
+      return { buckets: newBuckets }
+    }),
+
+  removeBucket: (bucketId) =>
+    set((state) => {
+      const newBuckets = new Map(state.buckets)
+      newBuckets.delete(bucketId)
+      return { buckets: newBuckets }
+    }),
+
+  getBucket: (bucketId) => {
+    return get().buckets.get(bucketId)
+  },
+
+  getAllBuckets: () => {
+    return Array.from(get().buckets.values())
+  },
+
+  clearBuckets: () =>
+    set({ buckets: new Map() }),
+
+  setClusteringStatus: (status, error) =>
+    set({ clusteringStatus: status, clusteringError: error || null }),
+
+  applyClusteringResult: (result) =>
+    set((state) => {
+      // Add all buckets
+      const newBuckets = new Map(state.buckets)
+      result.buckets.forEach((bucket) => {
+        newBuckets.set(bucket.bucketId, bucket)
+      })
+
+      // Update changes with suggested topics
+      const newChanges = new Map(state.changes)
+      result.buckets.forEach((bucket) => {
+        bucket.changeIds.forEach((changeId) => {
+          const change = newChanges.get(changeId)
+          if (change) {
+            newChanges.set(changeId, {
+              ...change,
+              suggestedThread: bucket.suggestedTopic,
+            })
+          }
+        })
+      })
+
+      return {
+        buckets: newBuckets,
+        changes: newChanges,
+        clusteringStatus: 'complete' as const,
+        clusteringError: null,
+      }
+    }),
 
   // Document management
   addNormalizedDocument: (doc) =>

@@ -15,14 +15,18 @@ describe('App', () => {
     ).toBeInTheDocument()
   })
 
-  it('shows Phase 1.4 implementation features', () => {
+  it('shows Phase 2.1 clustering implementation features', () => {
     render(<App />)
     expect(
-      screen.getByText('Phase 1.4: Data Model Implementation')
+      screen.getByText('Phase 2.1: Heuristic Clustering (NEW)')
     ).toBeInTheDocument()
     expect(
-      screen.getByText(/Core data structures: Document, Change, and Thread/i)
+      screen.getByText(/Clause-based clustering using Levenshtein distance/i)
     ).toBeInTheDocument()
-    expect(screen.getByText(/Previous Phase 1.2 features/i)).toBeInTheDocument()
+    expect(
+      screen.getByText(/Keyword extraction using TF-IDF algorithm/i)
+    ).toBeInTheDocument()
+    expect(screen.getByText(/Previous Phase 1.4 features/i)).toBeInTheDocument()
+    expect(screen.getByText(/Phase 1.2 features/i)).toBeInTheDocument()
   })
 })
