@@ -148,6 +148,11 @@ threadline/
 - Follow existing test patterns in the codebase
 - Ensure tests are deterministic and don't rely on timing
 - Mock external dependencies appropriately
+- Use test document fixtures from `src/test/fixtures/documents/` for document-related tests
+  - `simple_word.docx` - Basic Word document with plain text
+  - `simple_google.docx` - Basic Google Docs export with plain text
+  - `complex_word.docx` - Document with formatting and tracked changes
+  - See `src/test/fixtures/documents/README.md` for detailed descriptions
 
 ### Security
 - Always sanitize HTML content with DOMPurify before rendering
@@ -228,6 +233,7 @@ This project is licensed under GNU AGPL v3. All contributions must be compatible
 - Use JSZip for reading/writing DOCX structure
 - Process document content in Web Workers for large files
 - Store document metadata in IndexedDB using idb wrapper
+- Test document parsing with fixtures in `src/test/fixtures/documents/`
 
 ### Debugging
 - Use browser DevTools
