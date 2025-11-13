@@ -15,14 +15,14 @@ describe('App', () => {
     ).toBeInTheDocument()
   })
 
-  it('shows Phase 1.2 implementation features', () => {
+  it('shows Phase 1.4 implementation features', () => {
     render(<App />)
     expect(
-      screen.getByText('Phase 1.2: DOCX Structure Extraction')
+      screen.getByText('Phase 1.4: Data Model Implementation')
     ).toBeInTheDocument()
     expect(
-      screen.getByText(/Web Worker for non-blocking DOCX parsing/i)
+      screen.getByText(/Core data structures: Document, Change, and Thread/i)
     ).toBeInTheDocument()
-    expect(screen.getByText(/SHA-256 document hashing/i)).toBeInTheDocument()
+    expect(screen.getByText(/Previous Phase 1.2 features/i)).toBeInTheDocument()
   })
 })
