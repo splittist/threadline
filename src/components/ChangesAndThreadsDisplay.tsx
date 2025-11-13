@@ -11,6 +11,7 @@ import {
   XCircleIcon,
   ClockIcon,
   ExclamationCircleIcon,
+  ExclamationTriangleIcon,
 } from '@heroicons/react/24/outline'
 import type { ThreadStatus } from '../types/dataModel'
 
@@ -221,6 +222,7 @@ function ThreadStatusBadge({ status }: { status: ThreadStatus }) {
     'under-review': { label: 'Under Review', icon: ClockIcon, classes: 'bg-yellow-100 text-yellow-800' },
     approved: { label: 'Approved', icon: CheckCircleIcon, classes: 'bg-green-100 text-green-800' },
     rejected: { label: 'Rejected', icon: XCircleIcon, classes: 'bg-red-100 text-red-800' },
+    escalate: { label: 'Escalate', icon: ExclamationTriangleIcon, classes: 'bg-orange-100 text-orange-800' },
   }
 
   const config = statusConfig[status]

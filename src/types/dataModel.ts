@@ -57,7 +57,7 @@ export interface Change {
 /**
  * Thread status values
  */
-export type ThreadStatus = 'proposed' | 'approved' | 'rejected' | 'under-review'
+export type ThreadStatus = 'proposed' | 'approved' | 'rejected' | 'under-review' | 'escalate'
 
 /**
  * Note attached to a thread
