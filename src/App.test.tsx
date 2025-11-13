@@ -15,17 +15,18 @@ describe('App', () => {
     ).toBeInTheDocument()
   })
 
-  it('shows Phase 2.1 clustering implementation features', () => {
+  it('shows Phase 2.2 clustering implementation features', () => {
     render(<App />)
     expect(
-      screen.getByText('Phase 2.1: Heuristic Clustering (NEW)')
+      screen.getByText('Phase 2.2: LLM-Assisted Clustering (NEW)')
     ).toBeInTheDocument()
     expect(
-      screen.getByText(/Clause-based clustering using Levenshtein distance/i)
+      screen.getByText(/Export clustering packet as JSON with clear LLM instructions/i)
     ).toBeInTheDocument()
     expect(
-      screen.getByText(/Keyword extraction using TF-IDF algorithm/i)
+      screen.getByText(/Import and validate LLM responses with comprehensive checks/i)
     ).toBeInTheDocument()
+    expect(screen.getByText(/Previous Phase 2.1 features/i)).toBeInTheDocument()
     expect(screen.getByText(/Previous Phase 1.4 features/i)).toBeInTheDocument()
     expect(screen.getByText(/Phase 1.2 features/i)).toBeInTheDocument()
   })

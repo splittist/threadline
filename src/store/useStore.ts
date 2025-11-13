@@ -2,6 +2,7 @@ import { create } from 'zustand'
 import type { ParsedDocument } from '../types/docx'
 import type { Document, Change, Thread, ThreadStatus, ThreadNote, SelectionState } from '../types/dataModel'
 import type { Bucket, ClusteringResult } from '../types/clustering'
+import type { LLMClusteringPacket } from '../types/llmClustering'
 
 export interface DocumentFile {
   id: string
@@ -63,6 +64,13 @@ interface AppState {
   clearBuckets: () => void
   setClusteringStatus: (status: AppState['clusteringStatus'], error?: string) => void
   applyClusteringResult: (result: ClusteringResult) => void
+
+  // --- Phase 2.2: LLM-Assisted Clustering ---
+  
+  /** Last exported clustering packet (for validation on import) */
+  lastExportedPacket: LLMClusteringPacket | null
+  /** Store the last exported packet for validation */
+  setLastExportedPacket: (packet: LLMClusteringPacket | null) => void
 
   // Document management actions
   addNormalizedDocument: (doc: Document) => void
@@ -221,6 +229,13 @@ export const useStore = create<AppState>((set, get) => ({
         clusteringError: null,
       }
     }),
+
+  // --- Phase 2.2: LLM-Assisted Clustering Implementation ---
+  
+  lastExportedPacket: null,
+
+  setLastExportedPacket: (packet) =>
+    set({ lastExportedPacket: packet }),
 
   // Document management
   addNormalizedDocument: (doc) =>

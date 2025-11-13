@@ -4,6 +4,8 @@ import { DocumentParser } from './components/DocumentParser'
 import { ClusteringEngine } from './components/ClusteringEngine'
 import { ParsedDocumentList } from './components/ParsedDocumentList'
 import { ChangesAndThreadsDisplay } from './components/ChangesAndThreadsDisplay'
+import { LLMClusteringControls } from './components/LLMClusteringControls'
+import { SuggestedTopics } from './components/SuggestedTopics'
 
 function App() {
   return (
@@ -37,24 +39,38 @@ function App() {
           <ChangesAndThreadsDisplay />
         </div>
 
+        {/* LLM Clustering Controls - Phase 2.2 */}
+        <div className="mb-8">
+          <LLMClusteringControls />
+        </div>
+
+        {/* Suggested Topics - Phase 2.1 & 2.2 */}
+        <div className="mb-8">
+          <SuggestedTopics />
+        </div>
+
         <div className="bg-white rounded-lg shadow-md p-6">
           <h2 className="text-2xl font-semibold text-gray-800 mb-4">
-            Phase 2.1: Heuristic Clustering (NEW)
+            Phase 2.2: LLM-Assisted Clustering (NEW)
           </h2>
           <p className="text-gray-600 mb-4">
             This implementation includes:
           </p>
           <ul className="list-disc list-inside mt-4 space-y-2 text-gray-700">
-            <li>Clause-based clustering using Levenshtein distance for similarity</li>
-            <li>Keyword extraction using TF-IDF algorithm</li>
-            <li>Topic suggestions generated from extracted keywords</li>
-            <li>Buckets stored as suggested groupings (max 15-20)</li>
-            <li>Clustering runs in Web Worker for non-blocking performance</li>
-            <li>Changes with similar clause paths automatically grouped</li>
-            <li>Related changes across documents identified</li>
-            <li>All buckets remain in "Unassigned" state for user review</li>
+            <li>Export clustering packet as JSON with clear LLM instructions</li>
+            <li>Import and validate LLM responses with comprehensive checks</li>
+            <li>Security: All imported text sanitized with DOMPurify</li>
+            <li>Validation: ChangeIds, confidence scores, and schema checked</li>
+            <li>Suggested topics displayed but never auto-applied to threads</li>
+            <li>Support for up to 500 changes per batch</li>
+            <li>Clear error messages for invalid responses</li>
           </ul>
           <p className="text-gray-600 mt-4">
+            <strong>Previous Phase 2.1 features:</strong> Clause-based clustering using Levenshtein distance,
+            keyword extraction using TF-IDF, topic suggestions, buckets stored as suggested groupings,
+            clustering runs in Web Worker for performance.
+          </p>
+          <p className="text-gray-600 mt-2">
             <strong>Previous Phase 1.4 features:</strong> Core data structures (Document, Change, Thread),
             Zustand store slices, state update actions, computed selectors, and automatic change extraction.
           </p>
