@@ -72,6 +72,19 @@ interface AppState {
   /** Store the last exported packet for validation */
   setLastExportedPacket: (packet: LLMClusteringPacket | null) => void
 
+  // --- Phase 3.1: Panel Layout ---
+  
+  /** Panel visibility and state */
+  panelState: {
+    showThreadList: boolean
+    showChangeList: boolean
+    showMetadata: boolean
+  }
+  
+  // Panel state management actions
+  setPanelVisibility: (panel: 'threadList' | 'changeList' | 'metadata', visible: boolean) => void
+  togglePanel: (panel: 'threadList' | 'changeList' | 'metadata') => void
+
   // Document management actions
   addNormalizedDocument: (doc: Document) => void
   getNormalizedDocument: (docId: string) => Document | undefined
@@ -470,4 +483,31 @@ export const useStore = create<AppState>((set, get) => ({
     const changes = Array.from(get().changes.values())
     return changes.filter((change) => change.threadId === threadId).length
   },
+
+  // --- Phase 3.1: Panel Layout Implementation ---
+  
+  panelState: {
+    showThreadList: true,
+    showChangeList: true,
+    showMetadata: true,
+  },
+
+  setPanelVisibility: (panel, visible) =>
+    set((state) => ({
+      panelState: {
+        ...state.panelState,
+        [`show${panel.charAt(0).toUpperCase() + panel.slice(1)}`]: visible,
+      },
+    })),
+
+  togglePanel: (panel) =>
+    set((state) => {
+      const key = `show${panel.charAt(0).toUpperCase() + panel.slice(1)}` as keyof typeof state.panelState
+      return {
+        panelState: {
+          ...state.panelState,
+          [key]: !state.panelState[key],
+        },
+      }
+    }),
 }))

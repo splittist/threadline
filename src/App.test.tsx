@@ -15,17 +15,18 @@ describe('App', () => {
     ).toBeInTheDocument()
   })
 
-  it('shows Phase 2.2 clustering implementation features', () => {
+  it('shows Phase 3.1 three-panel layout implementation features', () => {
     render(<App />)
     expect(
-      screen.getByText('Phase 2.2: LLM-Assisted Clustering (NEW)')
+      screen.getByText('Phase 3.1: Three-Panel Layout (NEW)')
     ).toBeInTheDocument()
     expect(
-      screen.getByText(/Export clustering packet as JSON with clear LLM instructions/i)
+      screen.getByText(/Responsive three-panel layout with Thread List, Change List, and Thread Metadata/i)
     ).toBeInTheDocument()
     expect(
-      screen.getByText(/Import and validate LLM responses with comprehensive checks/i)
+      screen.getByText(/Panel state management in Zustand store/i)
     ).toBeInTheDocument()
+    expect(screen.getByText(/Previous Phase 2.2 features/i)).toBeInTheDocument()
     expect(screen.getByText(/Previous Phase 2.1 features/i)).toBeInTheDocument()
     expect(screen.getByText(/Previous Phase 1.4 features/i)).toBeInTheDocument()
     expect(screen.getByText(/Phase 1.2 features/i)).toBeInTheDocument()
