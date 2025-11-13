@@ -8,9 +8,16 @@ import type {
   DocumentWorkerMessage,
   DocumentWorkerResponse,
 } from '../types/docx'
+import type { Document, Change } from '../types/dataModel'
 
 export function DocumentParser() {
-  const { documents, updateDocumentStatus, addParsedDocument } = useStore()
+  const { 
+    documents, 
+    updateDocumentStatus, 
+    addParsedDocument,
+    addNormalizedDocument,
+    addChanges,
+  } = useStore()
   const workerRef = useRef<Worker | null>(null)
 
   useEffect(() => {
@@ -28,6 +35,32 @@ export function DocumentParser() {
         // Update status and store parsed document
         updateDocumentStatus(fileId, 'parsed')
         addParsedDocument(data)
+        
+        // Populate normalized document (Phase 1.4)
+        const normalizedDoc: Document = {
+          docId: data.docId,
+          name: data.name,
+          hash: data.hash,
+          uploadedAt: data.uploadedAt,
+          parsedAt: data.parsedAt,
+        }
+        addNormalizedDocument(normalizedDoc)
+        
+        // Populate changes (Phase 1.4)
+        const changes: Change[] = data.changes.map((tc) => ({
+          changeId: tc.changeId,
+          docId: tc.docId,
+          type: tc.type,
+          author: tc.author,
+          timestamp: tc.timestamp,
+          clausePath: tc.clausePath,
+          textBefore: tc.textBefore,
+          changedText: tc.changedText,
+          textAfter: tc.textAfter,
+          threadId: null, // Initially unassigned
+          suggestedThread: null, // Will be set by clustering in Phase 2
+        }))
+        addChanges(changes)
       } else if (type === 'PARSE_ERROR' && fileId) {
         // Update status with error
         updateDocumentStatus(fileId, 'error', error || 'Unknown error')
@@ -38,7 +71,7 @@ export function DocumentParser() {
     return () => {
       workerRef.current?.terminate()
     }
-  }, [updateDocumentStatus, addParsedDocument])
+  }, [updateDocumentStatus, addParsedDocument, addNormalizedDocument, addChanges])
 
   useEffect(() => {
     // Parse any pending documents
