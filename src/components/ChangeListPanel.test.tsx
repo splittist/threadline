@@ -57,6 +57,7 @@ describe('ChangeListPanel', () => {
         clausePath: ['Section 1', 'Subsection 1.1'],
         textBefore: 'Before text',
         changedText: 'New text',
+      textRuns: [],
         textAfter: 'After text',
         threadId: thread.threadId,
         suggestedThread: null,
@@ -86,6 +87,7 @@ describe('ChangeListPanel', () => {
         clausePath: [],
         textBefore: '',
         changedText: 'Deleted text',
+      textRuns: [],
         textAfter: '',
         threadId: null,
         suggestedThread: null,
@@ -107,7 +109,7 @@ describe('ChangeListPanel', () => {
   })
 
   describe('Diff View and Color Coding', () => {
-    it('displays insertions with green background', () => {
+    it('displays insertions with minimal styling', () => {
       const store = useStore.getState()
 
       const change: Change = {
@@ -119,6 +121,7 @@ describe('ChangeListPanel', () => {
         clausePath: [],
         textBefore: '',
         changedText: 'Inserted text',
+      textRuns: [],
         textAfter: '',
         threadId: null,
         suggestedThread: null,
@@ -129,11 +132,12 @@ describe('ChangeListPanel', () => {
 
       const insertedText = screen.getByText('Inserted text')
       expect(insertedText).toBeInTheDocument()
-      expect(insertedText).toHaveClass('bg-green-100')
-      expect(insertedText).toHaveClass('text-green-900')
+      // Check that the parent element has correct styling
+      const parentSpan = insertedText.parentElement
+      expect(parentSpan).toHaveClass('text-gray-900')
     })
 
-    it('displays deletions with red background and strikethrough', () => {
+    it('displays deletions with strikethrough and gray text', () => {
       const store = useStore.getState()
 
       const change: Change = {
@@ -145,6 +149,7 @@ describe('ChangeListPanel', () => {
         clausePath: [],
         textBefore: '',
         changedText: 'Deleted text',
+      textRuns: [],
         textAfter: '',
         threadId: null,
         suggestedThread: null,
@@ -155,9 +160,9 @@ describe('ChangeListPanel', () => {
 
       const deletedText = screen.getByText('Deleted text')
       expect(deletedText).toBeInTheDocument()
-      expect(deletedText).toHaveClass('bg-red-100')
-      expect(deletedText).toHaveClass('text-red-900')
+      // Check that the text has strikethrough and gray styling
       expect(deletedText).toHaveClass('line-through')
+      expect(deletedText).toHaveClass('text-gray-500')
     })
 
     it('displays change type badges', () => {
@@ -173,6 +178,7 @@ describe('ChangeListPanel', () => {
           clausePath: [],
           textBefore: '',
           changedText: 'Text 1',
+      textRuns: [],
           textAfter: '',
           threadId: null,
           suggestedThread: null,
@@ -186,6 +192,7 @@ describe('ChangeListPanel', () => {
           clausePath: [],
           textBefore: '',
           changedText: 'Text 2',
+      textRuns: [],
           textAfter: '',
           threadId: null,
           suggestedThread: null,
@@ -212,6 +219,7 @@ describe('ChangeListPanel', () => {
         clausePath: ['8', 'Termination', '8.2 Force Majeure'],
         textBefore: '',
         changedText: 'Text',
+      textRuns: [],
         textAfter: '',
         threadId: null,
         suggestedThread: null,
@@ -241,6 +249,7 @@ describe('ChangeListPanel', () => {
         clausePath: [],
         textBefore: 'This is the text before the change.',
         changedText: 'New text',
+      textRuns: [],
         textAfter: 'This is the text after the change.',
         threadId: null,
         suggestedThread: null,
@@ -281,6 +290,7 @@ describe('ChangeListPanel', () => {
           clausePath: ['Termination'],
           textBefore: '',
           changedText: 'Termination clause text',
+      textRuns: [],
           textAfter: '',
           threadId: null,
           suggestedThread: null,
@@ -294,6 +304,7 @@ describe('ChangeListPanel', () => {
           clausePath: ['Payment'],
           textBefore: '',
           changedText: 'Payment terms text',
+      textRuns: [],
           textAfter: '',
           threadId: null,
           suggestedThread: null,
@@ -354,6 +365,7 @@ describe('ChangeListPanel', () => {
           clausePath: [],
           textBefore: '',
           changedText: 'Change 1',
+      textRuns: [],
           textAfter: '',
           threadId: null,
           suggestedThread: null,
@@ -367,6 +379,7 @@ describe('ChangeListPanel', () => {
           clausePath: [],
           textBefore: '',
           changedText: 'Change 2',
+      textRuns: [],
           textAfter: '',
           threadId: null,
           suggestedThread: null,
@@ -467,6 +480,7 @@ describe('ChangeListPanel', () => {
           clausePath: [],
           textBefore: '',
           changedText: 'Change 1',
+      textRuns: [],
           textAfter: '',
           threadId: thread1.threadId,
           suggestedThread: null,
@@ -480,6 +494,7 @@ describe('ChangeListPanel', () => {
           clausePath: [],
           textBefore: '',
           changedText: 'Change 2',
+      textRuns: [],
           textAfter: '',
           threadId: thread1.threadId,
           suggestedThread: null,
@@ -569,6 +584,7 @@ describe('ChangeListPanel', () => {
           clausePath: [],
           textBefore: '',
           changedText: 'Change 1',
+      textRuns: [],
           textAfter: '',
           threadId: null,
           suggestedThread: null,

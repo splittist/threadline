@@ -26,6 +26,18 @@ export interface Document {
 export type ChangeType = 'insertion' | 'deletion' | 'moveFrom' | 'moveTo'
 
 /**
+ * Text run with formatting
+ */
+export interface TextRun {
+  /** Text content */
+  text: string
+  /** Bold formatting */
+  bold?: boolean
+  /** Italic formatting */
+  italic?: boolean
+}
+
+/**
  * A tracked change extracted from a document
  * Represents an atomic edit (insertion, deletion, etc.)
  */
@@ -46,6 +58,8 @@ export interface Change {
   textBefore: string
   /** Changed text content */
   changedText: string
+  /** Text runs with formatting for the changed text */
+  textRuns: TextRun[]
   /** Text after the change (context window) */
   textAfter: string
   /** Thread this change is assigned to (null if unassigned) */

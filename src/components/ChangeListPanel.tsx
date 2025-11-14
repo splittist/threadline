@@ -580,13 +580,47 @@ function ChangeItem({ change, isSelected, onToggleSelection, getNormalizedDocume
   )
 }
 
-// Diff view component with color coding
+// Diff view component with minimal markup
 function DiffView({ change }: { change: Change }) {
+  // Render text runs with formatting
+  const renderTextRuns = (textRuns: typeof change.textRuns, isDeleted: boolean = false) => {
+    if (textRuns.length === 0) {
+      // Fallback to plain text if no text runs
+      let className = ''
+      if (isDeleted) {
+        className = 'line-through text-gray-500'
+      }
+      return <span className={className}>{change.changedText || '(empty change)'}</span>
+    }
+
+    return textRuns.map((run, index) => {
+      let className = ''
+      if (run.bold && run.italic) {
+        className = 'font-bold italic'
+      } else if (run.bold) {
+        className = 'font-bold'
+      } else if (run.italic) {
+        className = 'italic'
+      }
+
+      // For deletions, use a lighter text with strikethrough
+      if (isDeleted) {
+        className += ' line-through text-gray-500'
+      }
+
+      return (
+        <span key={index} className={className}>
+          {run.text}
+        </span>
+      )
+    })
+  }
+
   if (change.type === 'insertion') {
     return (
       <div className="text-sm">
-        <span className="bg-green-100 text-green-900 px-1 rounded">
-          {change.changedText || '(empty change)'}
+        <span className="text-gray-900">
+          {renderTextRuns(change.textRuns)}
         </span>
       </div>
     )
@@ -595,9 +629,7 @@ function DiffView({ change }: { change: Change }) {
   if (change.type === 'deletion') {
     return (
       <div className="text-sm">
-        <span className="bg-red-100 text-red-900 px-1 rounded line-through">
-          {change.changedText || '(empty change)'}
-        </span>
+        {renderTextRuns(change.textRuns, true)}
       </div>
     )
   }
@@ -605,22 +637,22 @@ function DiffView({ change }: { change: Change }) {
   // For moveFrom and moveTo, show as is
   return (
     <p className="text-sm text-gray-900">
-      {change.changedText || '(empty change)'}
+      {renderTextRuns(change.textRuns)}
     </p>
   )
 }
 
 function ChangeTypeBadge({ type }: { type: string }) {
   const typeConfig = {
-    insertion: { label: 'Insert', classes: 'bg-green-100 text-green-800' },
-    deletion: { label: 'Delete', classes: 'bg-red-100 text-red-800' },
-    moveFrom: { label: 'Move From', classes: 'bg-blue-100 text-blue-800' },
-    moveTo: { label: 'Move To', classes: 'bg-blue-100 text-blue-800' },
+    insertion: { label: 'Insert', classes: 'bg-green-50 text-green-700 border border-green-200' },
+    deletion: { label: 'Delete', classes: 'bg-red-50 text-red-700 border border-red-200' },
+    moveFrom: { label: 'Move From', classes: 'bg-blue-50 text-blue-700 border border-blue-200' },
+    moveTo: { label: 'Move To', classes: 'bg-blue-50 text-blue-700 border border-blue-200' },
   }
 
   const config = typeConfig[type as keyof typeof typeConfig] || {
     label: type,
-    classes: 'bg-gray-100 text-gray-800',
+    classes: 'bg-gray-50 text-gray-700 border border-gray-200',
   }
 
   return (

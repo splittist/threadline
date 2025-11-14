@@ -181,6 +181,8 @@ export interface TrackedChange {
   originalId: string
   /** Changed text content */
   changedText: string
+  /** Text runs with formatting for the changed text */
+  textRuns: TextRun[]
   /** Text before the change (context window) */
   textBefore: string
   /** Text after the change (context window) */

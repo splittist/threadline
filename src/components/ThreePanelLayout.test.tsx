@@ -73,6 +73,7 @@ describe('ThreePanelLayout', () => {
       clausePath: ['Section 1'],
       textBefore: 'Before text',
       changedText: 'Changed text',
+      textRuns: [],
       textAfter: 'After text',
       threadId: null,
       suggestedThread: null,
