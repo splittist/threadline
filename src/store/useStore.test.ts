@@ -19,6 +19,7 @@ describe('Phase 1.4 Data Model - Store', () => {
         selectedChangeIds: new Set(),
         activeDocumentId: null,
       },
+      selectedThreadIds: new Set(),
     })
   })
 
@@ -674,6 +675,301 @@ describe('Phase 1.4 Data Model - Store', () => {
       // Verify status was updated
       expect(useStore.getState().clusteringStatus).toBe('complete')
       expect(useStore.getState().clusteringError).toBeNull()
+    })
+  })
+
+  describe('Thread Operations - Merge', () => {
+    it('should merge multiple threads into one', () => {
+      const store = useStore.getState()
+      
+      // Create first thread with changes
+      const thread1 = store.createThread({
+        title: 'Thread 1',
+        userTopic: 'Topic 1',
+        rationale: 'Rationale 1',
+        suggestedTopic: null,
+        changeIds: [],
+        status: 'proposed',
+        notes: [],
+      })
+      
+      store.addChange({
+        changeId: 'chg_001',
+        docId: 'doc_001',
+        type: 'insertion',
+        author: 'Author 1',
+        timestamp: '2025-11-14T10:00:00Z',
+        clausePath: ['Section 1'],
+        textBefore: 'Before',
+        changedText: 'Change 1',
+        textAfter: 'After',
+        threadId: thread1.threadId,
+        suggestedThread: null,
+      })
+      
+      // Create second thread with changes
+      const thread2 = store.createThread({
+        title: 'Thread 2',
+        userTopic: 'Topic 2',
+        rationale: 'Rationale 2',
+        suggestedTopic: null,
+        changeIds: [],
+        status: 'approved',
+        notes: [],
+      })
+      
+      store.addChange({
+        changeId: 'chg_002',
+        docId: 'doc_001',
+        type: 'deletion',
+        author: 'Author 2',
+        timestamp: '2025-11-14T11:00:00Z',
+        clausePath: ['Section 2'],
+        textBefore: 'Before',
+        changedText: 'Change 2',
+        textAfter: 'After',
+        threadId: thread2.threadId,
+        suggestedThread: null,
+      })
+      
+      // Add notes to threads
+      store.addNoteToThread(thread1.threadId, 'Note 1')
+      store.addNoteToThread(thread2.threadId, 'Note 2')
+      
+      // Merge threads
+      const mergedThread = store.mergeThreads(
+        [thread1.threadId, thread2.threadId],
+        'Merged Thread',
+        'Merged Topic',
+        'Merged rationale'
+      )
+      
+      // Verify merged thread exists
+      expect(store.getThread(mergedThread.threadId)).toBeDefined()
+      expect(mergedThread.title).toBe('Merged Thread')
+      expect(mergedThread.userTopic).toBe('Merged Topic')
+      expect(mergedThread.rationale).toContain('Merged rationale')
+      expect(mergedThread.rationale).toContain('Thread 1: Rationale 1')
+      expect(mergedThread.rationale).toContain('Thread 2: Rationale 2')
+      
+      // Verify source threads are deleted
+      expect(store.getThread(thread1.threadId)).toBeUndefined()
+      expect(store.getThread(thread2.threadId)).toBeUndefined()
+      
+      // Verify all changes are reassigned to merged thread
+      const change1 = store.getChange('chg_001')
+      const change2 = store.getChange('chg_002')
+      expect(change1?.threadId).toBe(mergedThread.threadId)
+      expect(change2?.threadId).toBe(mergedThread.threadId)
+      
+      // Verify notes are preserved
+      expect(mergedThread.notes).toHaveLength(2)
+      
+      // Verify merged thread is selected
+      expect(useStore.getState().selection.selectedThreadId).toBe(mergedThread.threadId)
+      
+      // Verify thread selection is cleared
+      expect(useStore.getState().selectedThreadIds.size).toBe(0)
+    })
+    
+    it('should handle merge with no rationales in source threads', () => {
+      const store = useStore.getState()
+      
+      const thread1 = store.createThread({
+        title: 'Thread 1',
+        userTopic: 'Topic 1',
+        rationale: '',
+        suggestedTopic: null,
+        changeIds: [],
+        status: 'proposed',
+        notes: [],
+      })
+      
+      const thread2 = store.createThread({
+        title: 'Thread 2',
+        userTopic: 'Topic 2',
+        rationale: '',
+        suggestedTopic: null,
+        changeIds: [],
+        status: 'proposed',
+        notes: [],
+      })
+      
+      const mergedThread = store.mergeThreads(
+        [thread1.threadId, thread2.threadId],
+        'Merged Thread',
+        'Merged Topic',
+        'Custom rationale'
+      )
+      
+      expect(mergedThread.rationale).toBe('Custom rationale')
+    })
+  })
+
+  describe('Thread Operations - Split', () => {
+    it('should split a thread by moving selected changes to a new thread', () => {
+      const store = useStore.getState()
+      
+      // Create original thread
+      const originalThread = store.createThread({
+        title: 'Original Thread',
+        userTopic: 'Original Topic',
+        rationale: 'Original rationale',
+        suggestedTopic: null,
+        changeIds: [],
+        status: 'proposed',
+        notes: [],
+      })
+      
+      // Add changes to original thread
+      store.addChanges([
+        {
+          changeId: 'chg_001',
+          docId: 'doc_001',
+          type: 'insertion',
+          author: 'Author 1',
+          timestamp: '2025-11-14T10:00:00Z',
+          clausePath: ['Section 1'],
+          textBefore: 'Before',
+          changedText: 'Change 1',
+          textAfter: 'After',
+          threadId: originalThread.threadId,
+          suggestedThread: null,
+        },
+        {
+          changeId: 'chg_002',
+          docId: 'doc_001',
+          type: 'deletion',
+          author: 'Author 2',
+          timestamp: '2025-11-14T11:00:00Z',
+          clausePath: ['Section 2'],
+          textBefore: 'Before',
+          changedText: 'Change 2',
+          textAfter: 'After',
+          threadId: originalThread.threadId,
+          suggestedThread: null,
+        },
+        {
+          changeId: 'chg_003',
+          docId: 'doc_001',
+          type: 'insertion',
+          author: 'Author 3',
+          timestamp: '2025-11-14T12:00:00Z',
+          clausePath: ['Section 3'],
+          textBefore: 'Before',
+          changedText: 'Change 3',
+          textAfter: 'After',
+          threadId: originalThread.threadId,
+          suggestedThread: null,
+        },
+      ])
+      
+      // Split thread - move chg_002 and chg_003 to new thread
+      const newThread = store.splitThread(
+        originalThread.threadId,
+        ['chg_002', 'chg_003'],
+        'Split Thread',
+        'Split Topic',
+        'Split rationale'
+      )
+      
+      // Verify new thread was created
+      expect(store.getThread(newThread.threadId)).toBeDefined()
+      expect(newThread.title).toBe('Split Thread')
+      expect(newThread.userTopic).toBe('Split Topic')
+      expect(newThread.rationale).toBe('Split rationale')
+      
+      // Verify original thread still exists
+      expect(store.getThread(originalThread.threadId)).toBeDefined()
+      
+      // Verify changes were moved
+      const change1 = store.getChange('chg_001')
+      const change2 = store.getChange('chg_002')
+      const change3 = store.getChange('chg_003')
+      
+      expect(change1?.threadId).toBe(originalThread.threadId)
+      expect(change2?.threadId).toBe(newThread.threadId)
+      expect(change3?.threadId).toBe(newThread.threadId)
+      
+      // Verify new thread is selected
+      expect(useStore.getState().selection.selectedThreadId).toBe(newThread.threadId)
+      
+      // Verify change selection is cleared
+      expect(useStore.getState().selection.selectedChangeIds.size).toBe(0)
+    })
+    
+    it('should throw error when splitting non-existent thread', () => {
+      const store = useStore.getState()
+      
+      expect(() => {
+        store.splitThread(
+          'non-existent-thread',
+          ['chg_001'],
+          'New Thread',
+          'New Topic',
+          'New rationale'
+        )
+      }).toThrow('Source thread not found')
+    })
+  })
+
+  describe('Thread Selection Management', () => {
+    it('should toggle thread selection', () => {
+      const store = useStore.getState()
+      
+      const thread1 = store.createThread({
+        title: 'Thread 1',
+        userTopic: 'Topic 1',
+        rationale: 'Rationale 1',
+        suggestedTopic: null,
+        changeIds: [],
+        status: 'proposed',
+        notes: [],
+      })
+      
+      const thread2 = store.createThread({
+        title: 'Thread 2',
+        userTopic: 'Topic 2',
+        rationale: 'Rationale 2',
+        suggestedTopic: null,
+        changeIds: [],
+        status: 'proposed',
+        notes: [],
+      })
+      
+      // Select first thread
+      store.toggleThreadSelection(thread1.threadId)
+      expect(useStore.getState().selectedThreadIds.has(thread1.threadId)).toBe(true)
+      
+      // Select second thread
+      store.toggleThreadSelection(thread2.threadId)
+      expect(useStore.getState().selectedThreadIds.has(thread2.threadId)).toBe(true)
+      expect(useStore.getState().selectedThreadIds.size).toBe(2)
+      
+      // Deselect first thread
+      store.toggleThreadSelection(thread1.threadId)
+      expect(useStore.getState().selectedThreadIds.has(thread1.threadId)).toBe(false)
+      expect(useStore.getState().selectedThreadIds.size).toBe(1)
+    })
+    
+    it('should clear thread selection', () => {
+      const store = useStore.getState()
+      
+      const thread = store.createThread({
+        title: 'Thread 1',
+        userTopic: 'Topic 1',
+        rationale: 'Rationale 1',
+        suggestedTopic: null,
+        changeIds: [],
+        status: 'proposed',
+        notes: [],
+      })
+      
+      store.toggleThreadSelection(thread.threadId)
+      expect(useStore.getState().selectedThreadIds.size).toBe(1)
+      
+      store.clearThreadSelection()
+      expect(useStore.getState().selectedThreadIds.size).toBe(0)
     })
   })
 })
