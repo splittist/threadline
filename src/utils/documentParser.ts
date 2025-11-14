@@ -39,6 +39,7 @@ export function parseDocumentXml(
       removeNSPrefix: true, // Remove namespace prefixes like 'w:'
       parseAttributeValue: false, // Keep attribute values as strings
       parseTagValue: false, // Keep tag values as strings
+      trimValues: false, // Don't trim whitespace from text values
       isArray: (name) => {
         // These tags can appear multiple times and should always be arrays
         return ['p', 'r', 't', 'tab', 'br'].includes(name)
