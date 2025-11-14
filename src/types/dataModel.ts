@@ -52,6 +52,14 @@ export interface Change {
   threadId: string | null
   /** Suggested thread from automatic clustering (optional) */
   suggestedThread: string | null
+  /** Defined term matches (for DT-based clustering) */
+  dtMatches?: Array<{
+    term: string
+    weight: number
+    kind: 'strong' | 'context' | 'docwide'
+  }>
+  /** Total DT score (for DT-based clustering) */
+  dtScore?: number
 }
 
 /**

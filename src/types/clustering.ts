@@ -1,5 +1,6 @@
 /**
  * Types for clustering and topic suggestion (Phase 2.1)
+ * Extended with Defined-Term (DT) clustering support
  */
 
 /**
@@ -18,7 +19,7 @@ export interface Bucket {
   /** Confidence score (0-1) for this grouping */
   confidence: number
   /** Method used to create this bucket */
-  method: 'clause-path' | 'keyword' | 'document'
+  method: 'clause-path' | 'keyword' | 'document' | 'defined-term'
   /** Timestamp when bucket was created */
   createdAt: string
 }
@@ -47,6 +48,18 @@ export interface ClusteringParams {
   minChangesPerBucket?: number
   /** Maximum keywords per bucket (default: 5) */
   maxKeywordsPerBucket?: number
+  /** Use defined-term clustering (default: false) */
+  useDefinedTerms?: boolean
+  /** Minimum DT score for thread assignment (default: 1.0) */
+  dtScoreThreshold?: number
+  /** Weight for strong DT matches (default: 3.0) */
+  dtStrongWeight?: number
+  /** Weight for context DT matches (default: 1.5) */
+  dtContextWeight?: number
+  /** Weight for document-wide DT matches (default: 0.5) */
+  dtDocwideWeight?: number
+  /** Boost weight for changes in definition sections (default: 1.5) */
+  dtDefinitionBoost?: number
 }
 
 /**
@@ -93,4 +106,58 @@ export interface ClusteringWorkerResponse {
   type: 'CLUSTERING_COMPLETE' | 'CLUSTERING_ERROR'
   data?: ClusteringResult
   error?: string
+}
+
+/**
+ * Defined Term extracted from documents
+ */
+export interface DefinedTerm {
+  /** The normalized term text */
+  term: string
+  /** Original form as it appears in the document */
+  originalForm: string
+  /** Source of the definition */
+  source: 'definitions-section' | 'capitalized-span' | 'quoted-introduction' | 'heading'
+  /** Document ID where this term was found */
+  docId: string
+  /** Confidence level of this being a defined term (0-1) */
+  confidence: number
+}
+
+/**
+ * Statistics about a defined term across the corpus
+ */
+export interface DTStats {
+  /** The term */
+  term: string
+  /** Document frequency: number of contexts containing this term */
+  df: number
+  /** Inverse document frequency: log(1 + total_contexts / df) */
+  idf: number
+}
+
+/**
+ * Match of a defined term in a change
+ */
+export interface DTMatch {
+  /** The defined term that matched */
+  term: string
+  /** Weight/score for this match */
+  weight: number
+  /** Type of match */
+  kind: 'strong' | 'context' | 'docwide'
+}
+
+/**
+ * Extended change data with DT scoring
+ */
+export interface ChangeWithDT {
+  /** The original change ID */
+  changeId: string
+  /** Defined term matches found in this change */
+  dtMatches: DTMatch[]
+  /** Total DT score for this change */
+  dtScore: number
+  /** Primary (highest-scoring) defined term for this change */
+  primaryDT: string | null
 }
