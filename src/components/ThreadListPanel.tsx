@@ -1,7 +1,7 @@
 /**
  * Thread List Panel (Phase 3.2 - Left Panel)
  * Displays all threads and an "Unassigned" bucket
- * Supports thread creation, deletion, and selection
+ * Supports thread creation, deletion, selection, and merge operations
  */
 
 import { useState } from 'react'
@@ -15,6 +15,7 @@ import {
   ExclamationTriangleIcon,
   PlusIcon,
   TrashIcon,
+  ArrowsRightLeftIcon,
 } from '@heroicons/react/24/outline'
 import { Dialog, DialogPanel, DialogTitle } from '@headlessui/react'
 import type { ThreadStatus } from '../types/dataModel'
@@ -28,6 +29,10 @@ export function ThreadListPanel() {
     selection,
     createThread,
     deleteThread,
+    selectedThreadIds,
+    toggleThreadSelection,
+    clearThreadSelection,
+    mergeThreads,
   } = useStore()
 
   const threads = getAllThreads()
@@ -36,8 +41,14 @@ export function ThreadListPanel() {
 
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false)
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
+  const [isMergeDialogOpen, setIsMergeDialogOpen] = useState(false)
   const [threadToDelete, setThreadToDelete] = useState<string | null>(null)
   const [newThreadForm, setNewThreadForm] = useState({
+    title: '',
+    userTopic: '',
+    rationale: '',
+  })
+  const [mergeThreadForm, setMergeThreadForm] = useState({
     title: '',
     userTopic: '',
     rationale: '',
@@ -77,23 +88,70 @@ export function ThreadListPanel() {
     setIsDeleteDialogOpen(true)
   }
 
+  const handleMergeThreads = () => {
+    if (mergeThreadForm.title.trim() && mergeThreadForm.userTopic.trim() && selectedThreadIds.size >= 2) {
+      mergeThreads(
+        Array.from(selectedThreadIds),
+        mergeThreadForm.title.trim(),
+        mergeThreadForm.userTopic.trim(),
+        mergeThreadForm.rationale.trim()
+      )
+      setMergeThreadForm({ title: '', userTopic: '', rationale: '' })
+      setIsMergeDialogOpen(false)
+    }
+  }
+
+  const openMergeDialog = () => {
+    // Pre-populate with first selected thread's info
+    const firstThreadId = Array.from(selectedThreadIds)[0]
+    const firstThread = threads.find(t => t.threadId === firstThreadId)
+    if (firstThread) {
+      setMergeThreadForm({
+        title: firstThread.title,
+        userTopic: firstThread.userTopic,
+        rationale: firstThread.rationale,
+      })
+    }
+    setIsMergeDialogOpen(true)
+  }
+
   return (
     <div className="h-full flex flex-col bg-white border-r border-gray-200">
       {/* Header */}
       <div className="p-4 border-b border-gray-200">
         <div className="flex items-center justify-between mb-2">
           <h2 className="text-lg font-semibold text-gray-900">Threads</h2>
-          <button
-            onClick={() => setIsCreateDialogOpen(true)}
-            className="p-1.5 rounded-md hover:bg-gray-100 transition-colors"
-            title="New Thread"
-          >
-            <PlusIcon className="h-5 w-5 text-gray-600" />
-          </button>
+          <div className="flex items-center gap-2">
+            {selectedThreadIds.size >= 2 && (
+              <button
+                onClick={openMergeDialog}
+                className="p-1.5 rounded-md bg-blue-600 text-white hover:bg-blue-700 transition-colors"
+                title="Merge Selected Threads"
+              >
+                <ArrowsRightLeftIcon className="h-5 w-5" />
+              </button>
+            )}
+            <button
+              onClick={() => setIsCreateDialogOpen(true)}
+              className="p-1.5 rounded-md hover:bg-gray-100 transition-colors"
+              title="New Thread"
+            >
+              <PlusIcon className="h-5 w-5 text-gray-600" />
+            </button>
+          </div>
         </div>
         <p className="text-sm text-gray-500">
           {threads.length} {threads.length === 1 ? 'thread' : 'threads'}
+          {selectedThreadIds.size > 0 && ` (${selectedThreadIds.size} selected)`}
         </p>
+        {selectedThreadIds.size > 0 && (
+          <button
+            onClick={clearThreadSelection}
+            className="text-xs text-blue-600 hover:text-blue-800 mt-1"
+          >
+            Clear selection
+          </button>
+        )}
       </div>
 
       {/* Thread List */}
@@ -133,45 +191,61 @@ export function ThreadListPanel() {
           threads.map((thread) => {
             const changeCount = getThreadChangeCount(thread.threadId)
             const isSelected = selectedThreadId === thread.threadId
+            const isChecked = selectedThreadIds.has(thread.threadId)
 
             return (
               <div
                 key={thread.threadId}
                 className={`relative border-b border-gray-200 transition-colors ${
                   isSelected ? 'bg-blue-50 border-l-4 border-l-blue-600' : ''
-                }`}
+                } ${isChecked ? 'bg-blue-50' : ''}`}
               >
-                <button
-                  onClick={() => handleThreadSelect(thread.threadId)}
-                  className="w-full text-left p-4 hover:bg-gray-50 transition-colors"
-                >
-                  <div className="flex items-start justify-between mb-2">
-                    <h3 className="font-medium text-gray-900 text-sm pr-2 flex-1">
-                      {thread.title}
-                    </h3>
-                    <div className="flex items-center gap-2">
-                      <ThreadStatusBadge status={thread.status} />
+                <div className="flex items-start gap-2 p-4">
+                  {/* Checkbox for multi-select */}
+                  <input
+                    type="checkbox"
+                    checked={isChecked}
+                    onChange={(e) => {
+                      e.stopPropagation()
+                      toggleThreadSelection(thread.threadId)
+                    }}
+                    onClick={(e) => e.stopPropagation()}
+                    className="mt-1 h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                  />
+                  
+                  <button
+                    onClick={() => handleThreadSelect(thread.threadId)}
+                    className="flex-1 text-left hover:bg-gray-50 transition-colors rounded -m-2 p-2"
+                  >
+                    <div className="flex items-start justify-between mb-2">
+                      <h3 className="font-medium text-gray-900 text-sm pr-2 flex-1">
+                        {thread.title}
+                      </h3>
+                      <div className="flex items-center gap-2">
+                        <ThreadStatusBadge status={thread.status} />
+                      </div>
                     </div>
-                  </div>
-                  <p className="text-xs text-gray-600 mb-2">
-                    {thread.userTopic}
-                  </p>
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs text-gray-500">
-                      {changeCount} {changeCount === 1 ? 'change' : 'changes'}
-                    </span>
-                  </div>
-                </button>
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation()
-                    openDeleteDialog(thread.threadId, e)
-                  }}
-                  className="absolute top-4 right-4 p-1 rounded hover:bg-red-100 transition-colors z-10"
-                  title="Delete thread"
-                >
-                  <TrashIcon className="h-4 w-4 text-gray-500 hover:text-red-600" />
-                </button>
+                    <p className="text-xs text-gray-600 mb-2">
+                      {thread.userTopic}
+                    </p>
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs text-gray-500">
+                        {changeCount} {changeCount === 1 ? 'change' : 'changes'}
+                      </span>
+                    </div>
+                  </button>
+                  
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      openDeleteDialog(thread.threadId, e)
+                    }}
+                    className="p-1 rounded hover:bg-red-100 transition-colors"
+                    title="Delete thread"
+                  >
+                    <TrashIcon className="h-4 w-4 text-gray-500 hover:text-red-600" />
+                  </button>
+                </div>
               </div>
             )
           })
@@ -269,6 +343,77 @@ export function ThreadListPanel() {
                 className="px-4 py-2 text-sm font-medium text-white bg-red-600 rounded-md hover:bg-red-700"
               >
                 Delete
+              </button>
+            </div>
+          </DialogPanel>
+        </div>
+      </Dialog>
+
+      {/* Merge Threads Dialog */}
+      <Dialog open={isMergeDialogOpen} onClose={() => setIsMergeDialogOpen(false)} className="relative z-50">
+        <div className="fixed inset-0 bg-black/30" aria-hidden="true" />
+        <div className="fixed inset-0 flex items-center justify-center p-4">
+          <DialogPanel className="mx-auto max-w-md w-full bg-white rounded-lg shadow-xl p-6">
+            <DialogTitle className="text-lg font-semibold text-gray-900 mb-4">
+              Merge Threads
+            </DialogTitle>
+            <p className="text-sm text-gray-600 mb-4">
+              Merging {selectedThreadIds.size} threads. All changes and notes will be combined into one thread.
+            </p>
+            <div className="space-y-4">
+              <div>
+                <label htmlFor="merge-title" className="block text-sm font-medium text-gray-700 mb-1">
+                  Title *
+                </label>
+                <input
+                  id="merge-title"
+                  type="text"
+                  value={mergeThreadForm.title}
+                  onChange={(e) => setMergeThreadForm({ ...mergeThreadForm, title: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  placeholder="e.g., Combined Payment Terms"
+                />
+              </div>
+              <div>
+                <label htmlFor="merge-topic" className="block text-sm font-medium text-gray-700 mb-1">
+                  Topic *
+                </label>
+                <input
+                  id="merge-topic"
+                  type="text"
+                  value={mergeThreadForm.userTopic}
+                  onChange={(e) => setMergeThreadForm({ ...mergeThreadForm, userTopic: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  placeholder="e.g., Payment"
+                />
+              </div>
+              <div>
+                <label htmlFor="merge-rationale" className="block text-sm font-medium text-gray-700 mb-1">
+                  Rationale
+                </label>
+                <textarea
+                  id="merge-rationale"
+                  value={mergeThreadForm.rationale}
+                  onChange={(e) => setMergeThreadForm({ ...mergeThreadForm, rationale: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  rows={3}
+                  placeholder="Original rationales will be preserved below..."
+                />
+              </div>
+            </div>
+            <div className="flex justify-end gap-2 mt-6">
+              <button
+                onClick={() => setIsMergeDialogOpen(false)}
+                className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleMergeThreads}
+                disabled={!mergeThreadForm.title.trim() || !mergeThreadForm.userTopic.trim()}
+                className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed"
+              >
+                Merge Threads
               </button>
             </div>
           </DialogPanel>

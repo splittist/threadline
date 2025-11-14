@@ -7,10 +7,11 @@ import { ChangesAndThreadsDisplay } from './components/ChangesAndThreadsDisplay'
 import { LLMClusteringControls } from './components/LLMClusteringControls'
 import { SuggestedTopics } from './components/SuggestedTopics'
 import { ThreePanelLayout } from './components/ThreePanelLayout'
+import { ToastContainer } from './components/Toast'
 import { useStore } from './store/useStore'
 
 function App() {
-  const { changes } = useStore()
+  const { changes, toasts, removeToast } = useStore()
   const hasChanges = changes.size > 0
 
   return (
@@ -19,6 +20,14 @@ function App() {
       <DocumentParser />
       {/* Clustering Engine - runs after parsing (Phase 2.1) */}
       <ClusteringEngine />
+
+      {/* Toast Notifications */}
+      <ToastContainer 
+        toasts={toasts.map(toast => ({ 
+          ...toast, 
+          onClose: () => removeToast(toast.id) 
+        }))} 
+      />
 
       <div className="container mx-auto px-4 py-8">
         <div className="flex items-center gap-3 mb-8">

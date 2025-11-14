@@ -107,6 +107,8 @@ interface AppState {
   getAllThreads: () => Thread[]
   addNoteToThread: (threadId: string, noteText: string) => void
   updateThreadStatus: (threadId: string, status: ThreadStatus) => void
+  mergeThreads: (threadIds: string[], targetTitle: string, targetTopic: string, targetRationale: string) => Thread
+  splitThread: (sourceThreadId: string, changeIds: string[], newTitle: string, newTopic: string, newRationale: string) => Thread
 
   // Selection management actions
   setSelectedThread: (threadId: string | null) => void
@@ -114,6 +116,14 @@ interface AppState {
   selectChanges: (changeIds: string[]) => void
   clearChangeSelection: () => void
   setActiveDocument: (docId: string | null) => void
+  selectedThreadIds: Set<string>
+  toggleThreadSelection: (threadId: string) => void
+  clearThreadSelection: () => void
+
+  // Toast notification management
+  toasts: Array<{ id: string; message: string; type: 'success' | 'error' | 'info' }>
+  showToast: (message: string, type: 'success' | 'error' | 'info') => void
+  removeToast: (id: string) => void
 
   // Computed selectors
   getFilteredChanges: () => Change[]
@@ -168,6 +178,8 @@ export const useStore = create<AppState>((set, get) => ({
     selectedChangeIds: new Set(),
     activeDocumentId: null,
   },
+  selectedThreadIds: new Set(),
+  toasts: [],
 
   // --- Phase 2.1: Clustering Implementation ---
   
@@ -334,7 +346,11 @@ export const useStore = create<AppState>((set, get) => ({
     set((state) => {
       const newThreads = new Map(state.threads)
       newThreads.set(threadId, thread)
-      return { threads: newThreads }
+      const id = `toast_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`
+      return {
+        threads: newThreads,
+        toasts: [...state.toasts, { id, message: `Thread "${thread.title}" created successfully`, type: 'success' as const }],
+      }
     })
     
     return thread
@@ -358,6 +374,7 @@ export const useStore = create<AppState>((set, get) => ({
     set((state) => {
       const newThreads = new Map(state.threads)
       const newChanges = new Map(state.changes)
+      const thread = newThreads.get(threadId)
       
       // Unassign all changes from this thread
       newChanges.forEach((change) => {
@@ -368,6 +385,8 @@ export const useStore = create<AppState>((set, get) => ({
       
       newThreads.delete(threadId)
       
+      const id = `toast_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`
+      
       return {
         threads: newThreads,
         changes: newChanges,
@@ -377,6 +396,11 @@ export const useStore = create<AppState>((set, get) => ({
             ? null 
             : state.selection.selectedThreadId,
         },
+        toasts: [...state.toasts, { 
+          id, 
+          message: thread ? `Thread "${thread.title}" deleted` : 'Thread deleted', 
+          type: 'success' as const 
+        }],
       }
     }),
 
@@ -421,6 +445,159 @@ export const useStore = create<AppState>((set, get) => ({
       return { threads: newThreads }
     }),
 
+  mergeThreads: (threadIds, targetTitle, targetTopic, targetRationale) => {
+    const state = get()
+    const threadId = `th_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`
+    const now = new Date().toISOString()
+    
+    // Collect all changes and notes from source threads
+    const allChangeIds: string[] = []
+    const allNotes: ThreadNote[] = []
+    const rationales: string[] = []
+    
+    threadIds.forEach((tid) => {
+      const thread = state.threads.get(tid)
+      if (thread) {
+        // Collect changes
+        const threadChanges = Array.from(state.changes.values()).filter(
+          (change) => change.threadId === tid
+        )
+        allChangeIds.push(...threadChanges.map((c) => c.changeId))
+        
+        // Collect notes
+        allNotes.push(...thread.notes)
+        
+        // Collect rationales
+        if (thread.rationale.trim()) {
+          rationales.push(`${thread.title}: ${thread.rationale}`)
+        }
+      }
+    })
+    
+    // Combine rationales
+    let combinedRationale = targetRationale
+    if (rationales.length > 0) {
+      combinedRationale = targetRationale 
+        ? `${targetRationale}\n\nMerged from:\n${rationales.join('\n')}`
+        : `Merged from:\n${rationales.join('\n')}`
+    }
+    
+    // Create merged thread
+    const mergedThread: Thread = {
+      threadId,
+      title: targetTitle,
+      userTopic: targetTopic,
+      rationale: combinedRationale,
+      suggestedTopic: null,
+      changeIds: [],
+      status: 'proposed',
+      notes: allNotes,
+      createdAt: now,
+      updatedAt: now,
+    }
+    
+    set((state) => {
+      const newThreads = new Map(state.threads)
+      const newChanges = new Map(state.changes)
+      
+      // Add merged thread
+      newThreads.set(threadId, mergedThread)
+      
+      // Delete source threads
+      threadIds.forEach((tid) => {
+        newThreads.delete(tid)
+      })
+      
+      // Reassign all changes to merged thread
+      allChangeIds.forEach((changeId) => {
+        const change = newChanges.get(changeId)
+        if (change) {
+          newChanges.set(changeId, { ...change, threadId })
+        }
+      })
+      
+      const toastId = `toast_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`
+      
+      return {
+        threads: newThreads,
+        changes: newChanges,
+        selection: {
+          ...state.selection,
+          selectedThreadId: threadId,
+        },
+        selectedThreadIds: new Set(),
+        toasts: [...state.toasts, { 
+          id: toastId, 
+          message: `${threadIds.length} threads merged into "${targetTitle}"`, 
+          type: 'success' as const 
+        }],
+      }
+    })
+    
+    return mergedThread
+  },
+
+  splitThread: (sourceThreadId, changeIds, newTitle, newTopic, newRationale) => {
+    const state = get()
+    const sourceThread = state.threads.get(sourceThreadId)
+    
+    if (!sourceThread) {
+      throw new Error('Source thread not found')
+    }
+    
+    const newThreadId = `th_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`
+    const now = new Date().toISOString()
+    
+    // Create new thread with split changes
+    const newThread: Thread = {
+      threadId: newThreadId,
+      title: newTitle,
+      userTopic: newTopic,
+      rationale: newRationale,
+      suggestedTopic: null,
+      changeIds: [],
+      status: 'proposed',
+      notes: [],
+      createdAt: now,
+      updatedAt: now,
+    }
+    
+    set((state) => {
+      const newThreads = new Map(state.threads)
+      const newChanges = new Map(state.changes)
+      
+      // Add new thread
+      newThreads.set(newThreadId, newThread)
+      
+      // Reassign selected changes to new thread
+      changeIds.forEach((changeId) => {
+        const change = newChanges.get(changeId)
+        if (change && change.threadId === sourceThreadId) {
+          newChanges.set(changeId, { ...change, threadId: newThreadId })
+        }
+      })
+      
+      const toastId = `toast_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`
+      
+      return {
+        threads: newThreads,
+        changes: newChanges,
+        selection: {
+          ...state.selection,
+          selectedThreadId: newThreadId,
+          selectedChangeIds: new Set(),
+        },
+        toasts: [...state.toasts, { 
+          id: toastId, 
+          message: `${changeIds.length} ${changeIds.length === 1 ? 'change' : 'changes'} split into "${newTitle}"`, 
+          type: 'success' as const 
+        }],
+      }
+    })
+    
+    return newThread
+  },
+
   // Selection management
   setSelectedThread: (threadId) =>
     set((state) => ({
@@ -458,6 +635,20 @@ export const useStore = create<AppState>((set, get) => ({
       selection: { ...state.selection, activeDocumentId: docId },
     })),
 
+  toggleThreadSelection: (threadId) =>
+    set((state) => {
+      const newSelectedThreadIds = new Set(state.selectedThreadIds)
+      if (newSelectedThreadIds.has(threadId)) {
+        newSelectedThreadIds.delete(threadId)
+      } else {
+        newSelectedThreadIds.add(threadId)
+      }
+      return { selectedThreadIds: newSelectedThreadIds }
+    }),
+
+  clearThreadSelection: () =>
+    set({ selectedThreadIds: new Set() }),
+
   // Computed selectors
   getFilteredChanges: () => {
     const state = get()
@@ -483,6 +674,20 @@ export const useStore = create<AppState>((set, get) => ({
     const changes = Array.from(get().changes.values())
     return changes.filter((change) => change.threadId === threadId).length
   },
+
+  // Toast notifications
+  showToast: (message, type) =>
+    set((state) => {
+      const id = `toast_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`
+      return {
+        toasts: [...state.toasts, { id, message, type }],
+      }
+    }),
+
+  removeToast: (id) =>
+    set((state) => ({
+      toasts: state.toasts.filter((toast) => toast.id !== id),
+    })),
 
   // --- Phase 3.1: Panel Layout Implementation ---
   
