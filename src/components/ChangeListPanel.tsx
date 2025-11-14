@@ -1,7 +1,7 @@
 /**
  * Change List Panel (Phase 3.3 - Center Panel)
  * Displays changes for the selected thread or unassigned changes
- * with selection, bulk operations, search/filter, and virtualization
+ * with selection, bulk operations, search/filter, split, and virtualization
  */
 
 import { useState, useMemo } from 'react'
@@ -13,6 +13,7 @@ import {
   ArrowsRightLeftIcon,
   PlusIcon,
   ChevronRightIcon,
+  ScissorsIcon,
 } from '@heroicons/react/24/outline'
 import { Menu, MenuButton, MenuItems, MenuItem, Dialog, DialogPanel, DialogTitle } from '@headlessui/react'
 import type { Change, Document } from '../types/dataModel'
@@ -23,12 +24,14 @@ export function ChangeListPanel() {
     getUnassignedChanges,
     getNormalizedDocument,
     getAllThreads,
+    getThread,
     selection,
     toggleChangeSelection,
     selectChanges,
     clearChangeSelection,
     assignChangesToThread,
     createThread,
+    splitThread,
   } = useStore()
 
   const selectedThreadId = selection.selectedThreadId
@@ -36,10 +39,17 @@ export function ChangeListPanel() {
     ? getChangesByThread(selectedThreadId)
     : getUnassignedChanges()
   const threads = getAllThreads()
+  const currentThread = selectedThreadId ? getThread(selectedThreadId) : null
 
   const [searchQuery, setSearchQuery] = useState('')
   const [isCreateThreadDialogOpen, setIsCreateThreadDialogOpen] = useState(false)
+  const [isSplitDialogOpen, setIsSplitDialogOpen] = useState(false)
   const [newThreadForm, setNewThreadForm] = useState({
+    title: '',
+    userTopic: '',
+    rationale: '',
+  })
+  const [splitThreadForm, setSplitThreadForm] = useState({
     title: '',
     userTopic: '',
     rationale: '',
@@ -103,6 +113,33 @@ export function ChangeListPanel() {
     }
   }
 
+  // Handle splitting thread by moving selected changes to new thread
+  const handleSplitThread = () => {
+    if (splitThreadForm.title.trim() && splitThreadForm.userTopic.trim() && selectedThreadId) {
+      const changeIds = Array.from(selectedChangeIds)
+      splitThread(
+        selectedThreadId,
+        changeIds,
+        splitThreadForm.title.trim(),
+        splitThreadForm.userTopic.trim(),
+        splitThreadForm.rationale.trim()
+      )
+      setSplitThreadForm({ title: '', userTopic: '', rationale: '' })
+      setIsSplitDialogOpen(false)
+    }
+  }
+
+  const openSplitDialog = () => {
+    if (currentThread) {
+      setSplitThreadForm({
+        title: `${currentThread.title} (Split)`,
+        userTopic: currentThread.userTopic,
+        rationale: '',
+      })
+    }
+    setIsSplitDialogOpen(true)
+  }
+
   return (
     <div className="h-full flex flex-col bg-white border-r border-gray-200">
       {/* Header */}
@@ -148,11 +185,25 @@ export function ChangeListPanel() {
             </label>
 
             {hasSelection && (
-              <Menu as="div" className="relative">
-                <MenuButton className="inline-flex items-center gap-2 px-3 py-1.5 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
-                  <ArrowsRightLeftIcon className="h-4 w-4" />
-                  Move to...
-                </MenuButton>
+              <div className="flex items-center gap-2">
+                {/* Split button - only show when viewing a thread */}
+                {selectedThreadId && (
+                  <button
+                    onClick={openSplitDialog}
+                    className="inline-flex items-center gap-2 px-3 py-1.5 text-sm font-medium text-white bg-purple-600 rounded-md hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500"
+                    title="Split selected changes into a new thread"
+                  >
+                    <ScissorsIcon className="h-4 w-4" />
+                    Split to New Thread
+                  </button>
+                )}
+                
+                {/* Move to... menu */}
+                <Menu as="div" className="relative">
+                  <MenuButton className="inline-flex items-center gap-2 px-3 py-1.5 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
+                    <ArrowsRightLeftIcon className="h-4 w-4" />
+                    Move to...
+                  </MenuButton>
                 <MenuItems className="absolute right-0 z-10 mt-2 w-56 origin-top-right rounded-md bg-white shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none">
                   <div className="py-1 max-h-60 overflow-y-auto">
                     {selectedThreadId && (
@@ -203,6 +254,7 @@ export function ChangeListPanel() {
                   </div>
                 </MenuItems>
               </Menu>
+              </div>
             )}
           </div>
         )}
@@ -306,6 +358,84 @@ export function ChangeListPanel() {
                 className="flex-1 px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 Create & Move
+              </button>
+            </div>
+          </DialogPanel>
+        </div>
+      </Dialog>
+
+      {/* Split Thread Dialog */}
+      <Dialog open={isSplitDialogOpen} onClose={() => setIsSplitDialogOpen(false)}>
+        <div className="fixed inset-0 bg-black/30 z-50" aria-hidden="true" />
+        <div className="fixed inset-0 flex items-center justify-center p-4 z-50">
+          <DialogPanel className="w-full max-w-md bg-white rounded-lg shadow-xl p-6">
+            <DialogTitle className="text-lg font-semibold text-gray-900 mb-4">
+              Split Thread
+            </DialogTitle>
+            <p className="text-sm text-gray-600 mb-4">
+              Moving {selectedChangeIds.size} {selectedChangeIds.size === 1 ? 'change' : 'changes'} to a new thread. The original thread will keep its remaining changes.
+            </p>
+
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Title *
+                </label>
+                <input
+                  type="text"
+                  value={splitThreadForm.title}
+                  onChange={(e) =>
+                    setSplitThreadForm({ ...splitThreadForm, title: e.target.value })
+                  }
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  placeholder="New thread title"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Topic *
+                </label>
+                <input
+                  type="text"
+                  value={splitThreadForm.userTopic}
+                  onChange={(e) =>
+                    setSplitThreadForm({ ...splitThreadForm, userTopic: e.target.value })
+                  }
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  placeholder="New thread topic"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Rationale
+                </label>
+                <textarea
+                  value={splitThreadForm.rationale}
+                  onChange={(e) =>
+                    setSplitThreadForm({ ...splitThreadForm, rationale: e.target.value })
+                  }
+                  rows={3}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  placeholder="Why these changes should be in a separate thread..."
+                />
+              </div>
+            </div>
+
+            <div className="flex gap-2 mt-6">
+              <button
+                onClick={() => setIsSplitDialogOpen(false)}
+                className="flex-1 px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleSplitThread}
+                disabled={!splitThreadForm.title.trim() || !splitThreadForm.userTopic.trim()}
+                className="flex-1 px-4 py-2 text-sm font-medium text-white bg-purple-600 rounded-md hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Split Thread
               </button>
             </div>
           </DialogPanel>

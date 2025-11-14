@@ -378,7 +378,7 @@ describe('ThreadListPanel', () => {
     render(<ThreadListPanel />)
     
     const threadButton = screen.getByText('Selected Thread').closest('button')
-    const threadContainer = threadButton?.parentElement
+    const threadContainer = threadButton?.parentElement?.parentElement
     expect(threadContainer).toHaveClass('bg-blue-50')
   })
 
