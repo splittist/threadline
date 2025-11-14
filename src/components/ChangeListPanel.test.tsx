@@ -165,6 +165,81 @@ describe('ChangeListPanel', () => {
       expect(deletedText).toHaveClass('text-gray-500')
     })
 
+    it('renders bold and italic formatting in text runs', () => {
+      const store = useStore.getState()
+
+      const change: Change = {
+        changeId: 'change1',
+        docId: 'doc1',
+        type: 'insertion',
+        author: 'Author',
+        timestamp: '2025-11-14T00:00:00Z',
+        clausePath: [],
+        textBefore: '',
+        changedText: 'Normal bold italic bold-italic',
+        textRuns: [
+          { text: 'Normal ' },
+          { text: 'bold ', bold: true },
+          { text: 'italic ', italic: true },
+          { text: 'bold-italic', bold: true, italic: true },
+        ],
+        textAfter: '',
+        threadId: null,
+        suggestedThread: null,
+      }
+      store.addChange(change)
+
+      render(<ChangeListPanel />)
+
+      // Check the full change text is present
+      expect(screen.getByText('Normal', { exact: false })).toBeInTheDocument()
+      
+      // Get the container and check structure using querySelector
+      const container = screen.getByText('Normal').closest('.text-sm')
+      expect(container).toBeInTheDocument()
+      
+      // Check for bold elements
+      const boldElements = container?.querySelectorAll('.font-bold')
+      expect(boldElements?.length).toBeGreaterThanOrEqual(2)
+      
+      // Check for italic elements
+      const italicElements = container?.querySelectorAll('.italic')
+      expect(italicElements?.length).toBeGreaterThanOrEqual(2)
+    })
+
+    it('renders bold and italic formatting in deletions', () => {
+      const store = useStore.getState()
+
+      const change: Change = {
+        changeId: 'change1',
+        docId: 'doc1',
+        type: 'deletion',
+        author: 'Author',
+        timestamp: '2025-11-14T00:00:00Z',
+        clausePath: [],
+        textBefore: '',
+        changedText: 'Deleted bold text',
+        textRuns: [
+          { text: 'Deleted ' },
+          { text: 'bold', bold: true },
+          { text: ' text' },
+        ],
+        textAfter: '',
+        threadId: null,
+        suggestedThread: null,
+      }
+      store.addChange(change)
+
+      render(<ChangeListPanel />)
+
+      // Check that bold text in deletion has both bold and strikethrough
+      const boldText = screen.getByText('bold')
+      expect(boldText).toBeInTheDocument()
+      expect(boldText).toHaveClass('font-bold')
+      expect(boldText).toHaveClass('line-through')
+      expect(boldText).toHaveClass('text-gray-500')
+    })
+
     it('displays change type badges', () => {
       const store = useStore.getState()
 
