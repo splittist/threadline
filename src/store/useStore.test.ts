@@ -20,6 +20,7 @@ describe('Phase 1.4 Data Model - Store', () => {
         activeDocumentId: null,
       },
       selectedThreadIds: new Set(),
+      toasts: [],
     })
   })
 

@@ -20,6 +20,8 @@ describe('ThreadListPanel', () => {
         showChangeList: true,
         showMetadata: true,
       },
+      selectedThreadIds: new Set(),
+      toasts: [],
     })
   })
 

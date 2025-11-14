@@ -120,6 +120,11 @@ interface AppState {
   toggleThreadSelection: (threadId: string) => void
   clearThreadSelection: () => void
 
+  // Toast notification management
+  toasts: Array<{ id: string; message: string; type: 'success' | 'error' | 'info' }>
+  showToast: (message: string, type: 'success' | 'error' | 'info') => void
+  removeToast: (id: string) => void
+
   // Computed selectors
   getFilteredChanges: () => Change[]
   getThreadChangeCount: (threadId: string) => number
@@ -174,6 +179,7 @@ export const useStore = create<AppState>((set, get) => ({
     activeDocumentId: null,
   },
   selectedThreadIds: new Set(),
+  toasts: [],
 
   // --- Phase 2.1: Clustering Implementation ---
   
@@ -340,7 +346,11 @@ export const useStore = create<AppState>((set, get) => ({
     set((state) => {
       const newThreads = new Map(state.threads)
       newThreads.set(threadId, thread)
-      return { threads: newThreads }
+      const id = `toast_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`
+      return {
+        threads: newThreads,
+        toasts: [...state.toasts, { id, message: `Thread "${thread.title}" created successfully`, type: 'success' as const }],
+      }
     })
     
     return thread
@@ -364,6 +374,7 @@ export const useStore = create<AppState>((set, get) => ({
     set((state) => {
       const newThreads = new Map(state.threads)
       const newChanges = new Map(state.changes)
+      const thread = newThreads.get(threadId)
       
       // Unassign all changes from this thread
       newChanges.forEach((change) => {
@@ -374,6 +385,8 @@ export const useStore = create<AppState>((set, get) => ({
       
       newThreads.delete(threadId)
       
+      const id = `toast_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`
+      
       return {
         threads: newThreads,
         changes: newChanges,
@@ -383,6 +396,11 @@ export const useStore = create<AppState>((set, get) => ({
             ? null 
             : state.selection.selectedThreadId,
         },
+        toasts: [...state.toasts, { 
+          id, 
+          message: thread ? `Thread "${thread.title}" deleted` : 'Thread deleted', 
+          type: 'success' as const 
+        }],
       }
     }),
 
@@ -498,6 +516,8 @@ export const useStore = create<AppState>((set, get) => ({
         }
       })
       
+      const toastId = `toast_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`
+      
       return {
         threads: newThreads,
         changes: newChanges,
@@ -506,6 +526,11 @@ export const useStore = create<AppState>((set, get) => ({
           selectedThreadId: threadId,
         },
         selectedThreadIds: new Set(),
+        toasts: [...state.toasts, { 
+          id: toastId, 
+          message: `${threadIds.length} threads merged into "${targetTitle}"`, 
+          type: 'success' as const 
+        }],
       }
     })
     
@@ -552,6 +577,8 @@ export const useStore = create<AppState>((set, get) => ({
         }
       })
       
+      const toastId = `toast_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`
+      
       return {
         threads: newThreads,
         changes: newChanges,
@@ -560,6 +587,11 @@ export const useStore = create<AppState>((set, get) => ({
           selectedThreadId: newThreadId,
           selectedChangeIds: new Set(),
         },
+        toasts: [...state.toasts, { 
+          id: toastId, 
+          message: `${changeIds.length} ${changeIds.length === 1 ? 'change' : 'changes'} split into "${newTitle}"`, 
+          type: 'success' as const 
+        }],
       }
     })
     
@@ -642,6 +674,20 @@ export const useStore = create<AppState>((set, get) => ({
     const changes = Array.from(get().changes.values())
     return changes.filter((change) => change.threadId === threadId).length
   },
+
+  // Toast notifications
+  showToast: (message, type) =>
+    set((state) => {
+      const id = `toast_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`
+      return {
+        toasts: [...state.toasts, { id, message, type }],
+      }
+    }),
+
+  removeToast: (id) =>
+    set((state) => ({
+      toasts: state.toasts.filter((toast) => toast.id !== id),
+    })),
 
   // --- Phase 3.1: Panel Layout Implementation ---
   
