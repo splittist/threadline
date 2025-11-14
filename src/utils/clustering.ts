@@ -1,6 +1,7 @@
 /**
  * Clustering algorithm for grouping tracked changes
  * Implements Phase 2.1: Heuristic Clustering
+ * Extended with Defined-Term (DT) clustering support
  */
 
 import type { Change } from '../types/dataModel'
@@ -11,6 +12,14 @@ import type {
 } from '../types/clustering'
 import { areClausePathsSimilar, normalizeClausePath } from './stringSimilarity'
 import { extractAggregatedKeywords, generateTopicFromKeywords } from './keywordExtraction'
+import {
+  extractDefinedTerms,
+  deduplicateTerms,
+  calculateDTStats,
+  scoreAllChanges,
+  getPrimaryDT,
+} from './definedTerms'
+import type { DefinedTerm } from '../types/clustering'
 
 /**
  * Default clustering parameters
@@ -20,6 +29,12 @@ const DEFAULT_PARAMS: Required<ClusteringParams> = {
   clauseSimilarityThreshold: 0.7,
   minChangesPerBucket: 1,
   maxKeywordsPerBucket: 5,
+  useDefinedTerms: false,
+  dtScoreThreshold: 1.0,
+  dtStrongWeight: 3.0,
+  dtContextWeight: 1.5,
+  dtDocwideWeight: 0.5,
+  dtDefinitionBoost: 1.5,
 }
 
 /**
@@ -140,8 +155,112 @@ function sortAndLimitBuckets(
 }
 
 /**
+ * Extract defined terms from all changes' text
+ */
+function extractDefinedTermsFromChanges(changes: Change[]): DefinedTerm[] {
+  const allTerms: DefinedTerm[] = []
+  
+  // Extract from each change's text and context
+  changes.forEach(change => {
+    const fullText = [
+      change.textBefore,
+      change.changedText,
+      change.textAfter,
+    ].join(' ')
+    
+    const terms = extractDefinedTerms(fullText, change.docId, change.clausePath)
+    allTerms.push(...terms)
+  })
+  
+  // Deduplicate terms
+  return deduplicateTerms(allTerms)
+}
+
+/**
+ * Cluster changes using Defined Term (DT) scoring
+ * Each change is assigned to the thread of its highest-scoring DT
+ */
+function clusterByDefinedTerms(
+  changes: Change[],
+  config: Required<ClusteringParams>
+): Bucket[] {
+  // Step 1: Extract all defined terms from changes
+  const definedTerms = extractDefinedTermsFromChanges(changes)
+  
+  if (definedTerms.length === 0) {
+    // No defined terms found, return empty
+    return []
+  }
+  
+  // Step 2: Calculate IDF statistics for all terms
+  // Use all change contexts for IDF calculation
+  const allContexts = changes.map(c =>
+    [c.textBefore, c.changedText, c.textAfter].join(' ')
+  )
+  const dtStats = calculateDTStats(definedTerms, allContexts)
+  
+  // Step 3: Score all changes with DT matching
+  const weights = {
+    strong: config.dtStrongWeight,
+    context: config.dtContextWeight,
+    docwide: config.dtDocwideWeight,
+    definitionBoost: config.dtDefinitionBoost,
+  }
+  const scoredChanges = scoreAllChanges(changes, definedTerms, dtStats, weights)
+  
+  // Step 4: Group changes by their primary DT
+  const dtGroups = new Map<string, Change[]>()
+  
+  scoredChanges.forEach(change => {
+    // Only assign if score meets threshold
+    if (change.dtScore && change.dtScore >= config.dtScoreThreshold) {
+      const primaryDT = getPrimaryDT(change)
+      if (primaryDT) {
+        const group = dtGroups.get(primaryDT) || []
+        group.push(change)
+        dtGroups.set(primaryDT, group)
+      }
+    }
+  })
+  
+  // Step 5: Create buckets from DT groups
+  const buckets: Bucket[] = []
+  dtGroups.forEach((groupChanges, dtTerm) => {
+    if (groupChanges.length >= config.minChangesPerBucket) {
+      // Use the DT as the topic
+      const suggestedTopic = dtTerm
+        .split(/\s+/)
+        .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+        .join(' ')
+      
+      // Calculate confidence based on average DT score
+      const avgDtScore = groupChanges.reduce(
+        (sum, c) => sum + (c.dtScore || 0),
+        0
+      ) / groupChanges.length
+      
+      // Normalize confidence to 0-1 range (assuming max score is around 15)
+      const confidence = Math.min(avgDtScore / 15, 1.0)
+      
+      buckets.push({
+        bucketId: `bucket_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`,
+        suggestedTopic,
+        keywords: [dtTerm],
+        changeIds: groupChanges.map(c => c.changeId),
+        confidence,
+        method: 'defined-term',
+        createdAt: new Date().toISOString(),
+      })
+    }
+  })
+  
+  return buckets
+}
+
+/**
  * Main clustering function
  * Groups changes by clause path similarity and extracts keywords for topic suggestions
+ * Can optionally use Defined Term (DT) clustering for semantic grouping
  */
 export function clusterChanges(
   changes: Change[],
@@ -153,27 +272,35 @@ export function clusterChanges(
     ...params,
   }
   
-  // Step 1: Group by exact clause path
-  const exactGroups = groupByExactClausePath(changes)
+  let buckets: Bucket[] = []
   
-  // Step 2: Merge similar groups
-  const mergedGroups = mergeSimilarGroups(
-    exactGroups,
-    config.clauseSimilarityThreshold
-  )
-  
-  // Step 3: Create buckets from groups
-  const buckets: Bucket[] = []
-  mergedGroups.forEach((groupChanges) => {
-    if (groupChanges.length >= config.minChangesPerBucket) {
-      const bucket = createBucket(
-        groupChanges,
-        'clause-path',
-        config.maxKeywordsPerBucket
-      )
-      buckets.push(bucket)
-    }
-  })
+  // Choose clustering method based on configuration
+  if (config.useDefinedTerms) {
+    // Use DT-based clustering
+    buckets = clusterByDefinedTerms(changes, config)
+  } else {
+    // Use traditional clause-path clustering
+    // Step 1: Group by exact clause path
+    const exactGroups = groupByExactClausePath(changes)
+    
+    // Step 2: Merge similar groups
+    const mergedGroups = mergeSimilarGroups(
+      exactGroups,
+      config.clauseSimilarityThreshold
+    )
+    
+    // Step 3: Create buckets from groups
+    mergedGroups.forEach((groupChanges) => {
+      if (groupChanges.length >= config.minChangesPerBucket) {
+        const bucket = createBucket(
+          groupChanges,
+          'clause-path',
+          config.maxKeywordsPerBucket
+        )
+        buckets.push(bucket)
+      }
+    })
+  }
   
   // Step 4: Sort and limit buckets
   const limitedBuckets = sortAndLimitBuckets(buckets, config.maxBuckets)

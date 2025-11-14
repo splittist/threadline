@@ -277,3 +277,237 @@ describe('applyBucketsToChanges', () => {
     expect(withoutSuggestions.length).toBeGreaterThan(0)
   })
 })
+
+describe('clusterChanges with Defined Terms', () => {
+  it('should cluster by defined terms when enabled', () => {
+    const changes: Change[] = [
+      {
+        changeId: 'c1',
+        docId: 'doc1',
+        type: 'insertion',
+        author: 'Author',
+        timestamp: '2025-01-01T00:00:00Z',
+        clausePath: ['1', 'Definitions'],
+        textBefore: '',
+        changedText: '"Force Majeure Event" means any event beyond control',
+        textAfter: 'including natural disasters',
+        threadId: null,
+        suggestedThread: null,
+      },
+      {
+        changeId: 'c2',
+        docId: 'doc1',
+        type: 'insertion',
+        author: 'Author',
+        timestamp: '2025-01-01T00:00:00Z',
+        clausePath: ['8', 'Termination'],
+        textBefore: 'In case of',
+        changedText: 'Force Majeure Event',
+        textAfter: 'the contract may terminate',
+        threadId: null,
+        suggestedThread: null,
+      },
+      {
+        changeId: 'c3',
+        docId: 'doc1',
+        type: 'deletion',
+        author: 'Author',
+        timestamp: '2025-01-01T00:00:00Z',
+        clausePath: ['8', 'Termination', '8.2'],
+        textBefore: 'Any Force Majeure',
+        changedText: 'Event',
+        textAfter: 'shall be notified immediately',
+        threadId: null,
+        suggestedThread: null,
+      },
+    ]
+    
+    const result = clusterChanges(changes, {
+      useDefinedTerms: true,
+      dtScoreThreshold: 1.0,
+    })
+    
+    // Should create at least one DT-based bucket
+    expect(result.buckets.length).toBeGreaterThan(0)
+    
+    // Should use defined-term method
+    const dtBucket = result.buckets.find(b => b.method === 'defined-term')
+    expect(dtBucket).toBeDefined()
+    
+    // Should group Force Majeure changes together
+    expect(result.assignedChangeIds.length).toBeGreaterThan(0)
+  })
+
+  it('should assign high confidence to DT clusters', () => {
+    const changes: Change[] = [
+      {
+        changeId: 'c1',
+        docId: 'doc1',
+        type: 'insertion',
+        author: 'Author',
+        timestamp: '2025-01-01T00:00:00Z',
+        clausePath: ['1', 'Definitions'],
+        textBefore: '',
+        changedText: '"Operating Budget" means the annual budget',
+        textAfter: 'approved by the Board',
+        threadId: null,
+        suggestedThread: null,
+      },
+      {
+        changeId: 'c2',
+        docId: 'doc1',
+        type: 'insertion',
+        author: 'Author',
+        timestamp: '2025-01-01T00:00:00Z',
+        clausePath: ['5', 'Financials'],
+        textBefore: 'The',
+        changedText: 'Operating Budget must be approved',
+        textAfter: 'by December 31',
+        threadId: null,
+        suggestedThread: null,
+      },
+    ]
+    
+    const result = clusterChanges(changes, {
+      useDefinedTerms: true,
+    })
+    
+    if (result.buckets.length > 0) {
+      // DT-based buckets should have reasonable confidence
+      result.buckets.forEach(bucket => {
+        expect(bucket.confidence).toBeGreaterThan(0)
+        expect(bucket.confidence).toBeLessThanOrEqual(1)
+      })
+    }
+  })
+
+  it('should use DT as topic for buckets', () => {
+    const changes: Change[] = [
+      {
+        changeId: 'c1',
+        docId: 'doc1',
+        type: 'insertion',
+        author: 'Author',
+        timestamp: '2025-01-01T00:00:00Z',
+        clausePath: ['1', 'Definitions'],
+        textBefore: '',
+        changedText: '"Management Fee" shall mean the fee payable',
+        textAfter: 'to the Manager',
+        threadId: null,
+        suggestedThread: null,
+      },
+      {
+        changeId: 'c2',
+        docId: 'doc1',
+        type: 'insertion',
+        author: 'Author',
+        timestamp: '2025-01-01T00:00:00Z',
+        clausePath: ['7', 'Fees'],
+        textBefore: 'The',
+        changedText: 'Management Fee is calculated',
+        textAfter: 'monthly',
+        threadId: null,
+        suggestedThread: null,
+      },
+    ]
+    
+    const result = clusterChanges(changes, {
+      useDefinedTerms: true,
+    })
+    
+    // Should have a bucket with Management Fee related topic
+    const hasManagementFeeTopic = result.buckets.some(b =>
+      b.suggestedTopic.toLowerCase().includes('management')
+    )
+    expect(hasManagementFeeTopic).toBe(true)
+  })
+
+  it('should handle changes with no DT matches', () => {
+    const changes: Change[] = [
+      {
+        changeId: 'c1',
+        docId: 'doc1',
+        type: 'insertion',
+        author: 'Author',
+        timestamp: '2025-01-01T00:00:00Z',
+        clausePath: ['5', 'General'],
+        textBefore: 'The party',
+        changedText: 'shall notify',
+        textAfter: 'within 5 days',
+        threadId: null,
+        suggestedThread: null,
+      },
+    ]
+    
+    const result = clusterChanges(changes, {
+      useDefinedTerms: true,
+    })
+    
+    // Should handle gracefully, possibly leaving changes unassigned
+    expect(result.stats.totalChanges).toBe(1)
+  })
+
+  it('should respect dtScoreThreshold parameter', () => {
+    const changes: Change[] = [
+      {
+        changeId: 'c1',
+        docId: 'doc1',
+        type: 'insertion',
+        author: 'Author',
+        timestamp: '2025-01-01T00:00:00Z',
+        clausePath: ['1', 'Definitions'],
+        textBefore: '',
+        changedText: '"Term" means something',
+        textAfter: '',
+        threadId: null,
+        suggestedThread: null,
+      },
+      {
+        changeId: 'c2',
+        docId: 'doc1',
+        type: 'insertion',
+        author: 'Author',
+        timestamp: '2025-01-01T00:00:00Z',
+        clausePath: ['5', 'General'],
+        textBefore: 'The',
+        changedText: 'term applies',
+        textAfter: '',
+        threadId: null,
+        suggestedThread: null,
+      },
+    ]
+    
+    // With high threshold, weak matches should be excluded
+    const resultHigh = clusterChanges(changes, {
+      useDefinedTerms: true,
+      dtScoreThreshold: 10.0,
+    })
+    
+    // With low threshold, more matches should be included
+    const resultLow = clusterChanges(changes, {
+      useDefinedTerms: true,
+      dtScoreThreshold: 0.1,
+    })
+    
+    // Lower threshold should result in more or equal assignments
+    expect(resultLow.assignedChangeIds.length).toBeGreaterThanOrEqual(
+      resultHigh.assignedChangeIds.length
+    )
+  })
+
+  it('should fall back to clause-path clustering when useDefinedTerms is false', () => {
+    const changes: Change[] = [
+      createChange('c1', 'doc1', ['8', 'Termination'], 'text'),
+      createChange('c2', 'doc1', ['8', 'Termination'], 'text'),
+    ]
+    
+    const result = clusterChanges(changes, {
+      useDefinedTerms: false,
+    })
+    
+    // Should use clause-path method
+    expect(result.buckets.length).toBeGreaterThan(0)
+    const hasClausePathBucket = result.buckets.some(b => b.method === 'clause-path')
+    expect(hasClausePathBucket).toBe(true)
+  })
+})

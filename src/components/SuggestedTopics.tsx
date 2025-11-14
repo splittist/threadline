@@ -68,7 +68,7 @@ function BucketCard({
     keywords: string[]
     changeIds: string[]
     confidence: number
-    method: 'clause-path' | 'keyword' | 'document'
+    method: 'clause-path' | 'keyword' | 'document' | 'defined-term'
     createdAt: string
   }
   changes: Map<string, unknown>
@@ -92,6 +92,11 @@ function BucketCard({
       label: 'Document-Based',
       icon: FolderIcon,
       color: 'text-green-600 bg-green-50',
+    },
+    'defined-term': {
+      label: 'Term-Based',
+      icon: SparklesIcon,
+      color: 'text-amber-600 bg-amber-50',
     },
   }
 
