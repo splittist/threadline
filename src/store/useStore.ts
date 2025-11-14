@@ -1,7 +1,7 @@
 import { create } from 'zustand'
 import type { ParsedDocument } from '../types/docx'
 import type { Document, Change, Thread, ThreadStatus, ThreadNote, SelectionState } from '../types/dataModel'
-import type { Bucket, ClusteringResult } from '../types/clustering'
+import type { Bucket, ClusteringResult, ClusteringParams } from '../types/clustering'
 import type { LLMClusteringPacket } from '../types/llmClustering'
 
 export interface DocumentFile {
@@ -54,6 +54,10 @@ interface AppState {
   clusteringStatus: 'idle' | 'clustering' | 'complete' | 'error'
   /** Clustering error message */
   clusteringError: string | null
+  /** Clustering configuration parameters */
+  clusteringParams: ClusteringParams
+  /** Flag to trigger reclustering */
+  shouldRecluster: boolean
 
   // Bucket management actions
   addBucket: (bucket: Bucket) => void
@@ -64,6 +68,8 @@ interface AppState {
   clearBuckets: () => void
   setClusteringStatus: (status: AppState['clusteringStatus'], error?: string) => void
   applyClusteringResult: (result: ClusteringResult) => void
+  setClusteringParams: (params: Partial<ClusteringParams>) => void
+  triggerReclustering: () => void
 
   // --- Phase 2.2: LLM-Assisted Clustering ---
   
@@ -186,6 +192,14 @@ export const useStore = create<AppState>((set, get) => ({
   buckets: new Map(),
   clusteringStatus: 'idle',
   clusteringError: null,
+  clusteringParams: {
+    maxBuckets: 15,
+    clauseSimilarityThreshold: 0.7,
+    minChangesPerBucket: 1,
+    maxKeywordsPerBucket: 5,
+    useDefinedTerms: false,
+  },
+  shouldRecluster: false,
 
   // Bucket management
   addBucket: (bucket) =>
@@ -227,8 +241,8 @@ export const useStore = create<AppState>((set, get) => ({
 
   applyClusteringResult: (result) =>
     set((state) => {
-      // Add all buckets
-      const newBuckets = new Map(state.buckets)
+      // Clear existing buckets before adding new ones
+      const newBuckets = new Map()
       result.buckets.forEach((bucket) => {
         newBuckets.set(bucket.bucketId, bucket)
       })
@@ -252,8 +266,17 @@ export const useStore = create<AppState>((set, get) => ({
         changes: newChanges,
         clusteringStatus: 'complete' as const,
         clusteringError: null,
+        shouldRecluster: false,
       }
     }),
+
+  setClusteringParams: (params) =>
+    set((state) => ({
+      clusteringParams: { ...state.clusteringParams, ...params },
+    })),
+
+  triggerReclustering: () =>
+    set({ shouldRecluster: true, clusteringStatus: 'idle' }),
 
   // --- Phase 2.2: LLM-Assisted Clustering Implementation ---
   
