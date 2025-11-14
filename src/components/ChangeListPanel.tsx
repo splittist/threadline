@@ -25,6 +25,7 @@ export function ChangeListPanel() {
     getNormalizedDocument,
     getAllThreads,
     getThread,
+    getChange,
     selection,
     toggleChangeSelection,
     selectChanges,
@@ -54,6 +55,24 @@ export function ChangeListPanel() {
     userTopic: '',
     rationale: '',
   })
+
+  // Get suggested topics for selected changes
+  const suggestedTopics = useMemo(() => {
+    const selectedIds = Array.from(selection.selectedChangeIds)
+    const topics = new Map<string, number>() // topic -> count
+    
+    selectedIds.forEach(changeId => {
+      const change = getChange(changeId)
+      if (change?.suggestedThread) {
+        topics.set(change.suggestedThread, (topics.get(change.suggestedThread) || 0) + 1)
+      }
+    })
+    
+    // Sort by frequency
+    return Array.from(topics.entries())
+      .sort((a, b) => b[1] - a[1])
+      .map(([topic]) => topic)
+  }, [selection.selectedChangeIds, getChange])
 
   // Filter changes based on search query
   const filteredChanges = useMemo(() => {
@@ -204,8 +223,35 @@ export function ChangeListPanel() {
                     <ArrowsRightLeftIcon className="h-4 w-4" />
                     Move to...
                   </MenuButton>
-                <MenuItems className="absolute right-0 z-10 mt-2 w-56 origin-top-right rounded-md bg-white shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none">
-                  <div className="py-1 max-h-60 overflow-y-auto">
+                <MenuItems className="absolute right-0 z-10 mt-2 w-64 origin-top-right rounded-md bg-white shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none">
+                  <div className="py-1 max-h-96 overflow-y-auto">
+                    {/* Suggested Topics Section */}
+                    {suggestedTopics.length > 0 && (
+                      <>
+                        <div className="px-4 py-2 text-xs font-semibold text-gray-500 bg-yellow-50 border-b border-yellow-100">
+                          💡 Suggested Topics
+                        </div>
+                        {suggestedTopics.map((topic, index) => {
+                          const matchingThread = threads.find(
+                            t => t.title.toLowerCase().includes(topic.toLowerCase()) ||
+                                 t.userTopic.toLowerCase().includes(topic.toLowerCase())
+                          )
+                          return (
+                            <div key={`suggested-${index}`} className="px-4 py-2 text-xs text-yellow-800 bg-yellow-50 border-b border-yellow-100">
+                              <span className="font-medium">{topic}</span>
+                              {matchingThread && (
+                                <span className="text-yellow-600 ml-1">
+                                  (matches: {matchingThread.title})
+                                </span>
+                              )}
+                            </div>
+                          )
+                        })}
+                        <div className="border-b border-gray-200"></div>
+                      </>
+                    )}
+                    
+                    {/* Existing Threads */}
                     {selectedThreadId && (
                       <MenuItem>
                         {({ focus }) => (
@@ -475,6 +521,16 @@ function ChangeItem({ change, isSelected, onToggleSelection, getNormalizedDocume
           <DiffView change={change} />
         </div>
       </div>
+
+      {/* Suggested Topic Badge */}
+      {change.suggestedThread && (
+        <div className="mt-2 ml-7">
+          <span className="inline-flex items-center gap-1 px-2 py-1 rounded text-xs font-medium bg-yellow-100 text-yellow-800">
+            <span className="font-semibold">💡 Suggested:</span>
+            {change.suggestedThread}
+          </span>
+        </div>
+      )}
 
       {/* Metadata */}
       <div className="flex items-center gap-4 text-xs text-gray-500 mt-2 ml-7">

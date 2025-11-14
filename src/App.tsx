@@ -2,6 +2,7 @@ import { DocumentTextIcon } from '@heroicons/react/24/outline'
 import { FileUpload } from './components/FileUpload'
 import { DocumentParser } from './components/DocumentParser'
 import { ClusteringEngine } from './components/ClusteringEngine'
+import { ClusteringControls } from './components/ClusteringControls'
 import { ParsedDocumentList } from './components/ParsedDocumentList'
 import { ChangesAndThreadsDisplay } from './components/ChangesAndThreadsDisplay'
 import { LLMClusteringControls } from './components/LLMClusteringControls'
@@ -42,6 +43,13 @@ function App() {
         <div className="mb-8">
           <FileUpload />
         </div>
+
+        {/* Clustering Controls - Configure and rerun clustering */}
+        {hasChanges && (
+          <div className="mb-8">
+            <ClusteringControls />
+          </div>
+        )}
 
         {/* Three-Panel Layout - Phase 3.1 (NEW) */}
         {hasChanges && (

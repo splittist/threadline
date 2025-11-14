@@ -1,6 +1,7 @@
 /**
  * Component to manage clustering of changes using Web Worker
  * Triggers clustering automatically after documents are parsed
+ * and supports manual reclustering with user-configured parameters
  */
 
 import { useEffect, useRef } from 'react'
@@ -14,6 +15,8 @@ export function ClusteringEngine() {
   const {
     changes,
     clusteringStatus,
+    clusteringParams,
+    shouldRecluster,
     setClusteringStatus,
     applyClusteringResult,
   } = useStore()
@@ -48,14 +51,18 @@ export function ClusteringEngine() {
   }, [applyClusteringResult, setClusteringStatus])
 
   useEffect(() => {
-    // Trigger clustering when we have changes and haven't clustered yet
+    // Trigger clustering when:
+    // 1. We have changes and haven't clustered yet (automatic initial clustering)
+    // 2. User triggered reclustering via shouldRecluster flag
     const allChanges = Array.from(changes.values())
     
-    if (
+    const shouldCluster = (
       allChanges.length > 0 && 
       clusteringStatus === 'idle' &&
-      !hasClusteredRef.current
-    ) {
+      (!hasClusteredRef.current || shouldRecluster)
+    )
+    
+    if (shouldCluster) {
       hasClusteredRef.current = true
       setClusteringStatus('clustering')
 
@@ -69,23 +76,18 @@ export function ClusteringEngine() {
         textAfter: c.textAfter,
       }))
 
-      // Send to worker
+      // Send to worker with user-configured parameters
       const message: ClusteringWorkerMessage = {
         type: 'CLUSTER_CHANGES',
         data: {
           changes: changeData,
-          params: {
-            maxBuckets: 15,
-            clauseSimilarityThreshold: 0.7,
-            minChangesPerBucket: 1,
-            maxKeywordsPerBucket: 5,
-          },
+          params: clusteringParams,
         },
       }
 
       workerRef.current?.postMessage(message)
     }
-  }, [changes, clusteringStatus, setClusteringStatus])
+  }, [changes, clusteringStatus, clusteringParams, shouldRecluster, setClusteringStatus])
 
   // This component doesn't render anything
   return null
