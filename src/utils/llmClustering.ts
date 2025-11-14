@@ -27,15 +27,18 @@ const LLM_INSTRUCTIONS = `You are an AI assistant helping to cluster related doc
 **Task:** Analyze the provided changes and group related changes into clusters based on:
 1. Similar clause paths (changes in the same or related sections)
 2. Semantic similarity (changes about the same topic)
-3. Author patterns (optional, but can be useful)
+3. Author patterns (optional, but can be useful). Use author only as a tiebreaker when semantic and path signals are weak. Do not create clusters based solely on author.
 
 **Guidelines:**
 - Each cluster should represent a coherent topic or theme
 - A change can only belong to ONE cluster
 - Aim for 5-15 clusters (fewer is better if changes are highly related)
+- Distinguish formatting from substantive changes. Formatting changes should be clustered together unless tied to content
+- When a deletion and insertion modify the same logical content (same context, clausePath, or semantic intent), consider them as a single edit event for clustering purposes
 - Provide a clear, concise suggestedTopic for each cluster (2-5 words)
-- Extract 3-5 keywords that best describe each cluster
+- Extract 2-5 keywords that best describe each cluster
 - Assign confidence scores (0.0-1.0) based on how strongly changes relate
+- Confidence scale: 0.9+ = near-identical edits; 0.8 = same clause & intent; 0.7 = same section; 0.6 = weak but plausible link
 - Only cluster changes you're confident about (confidence >= 0.6)
 - Leave uncertain changes in unclusteredChangeIds
 
@@ -110,25 +113,25 @@ const RESPONSE_SCHEMA = {
             type: 'string',
             minLength: 1,
             maxLength: 100,
-            description: 'Suggested topic/title for this cluster',
+            description: 'Suggested topic/title for this cluster. 2 to 5 words. Use Title Case, no articles (the, a, an), no verbs.',
           },
           confidence: {
             type: 'number',
             minimum: 0,
             maximum: 1,
-            description: 'Confidence score (0-1)',
+            description: 'Confidence score (0-1). 0.6-0.69 = tentative, 0.7-0.79 = moderate, 0.8-0.89 = strong, 0.9+ = certain',
           },
           keywords: {
             type: 'array',
             items: { type: 'string' },
             minItems: 1,
             maxItems: 10,
-            description: 'Keywords that define this cluster',
+            description: 'Keywords that define this cluster, usually 2-5 words. Avoid repeating words from suggestedTopic. Prioritize unique concepts.',
           },
           rationale: {
             type: 'string',
             maxLength: 500,
-            description: 'Brief rationale for this clustering',
+            description: 'Brief rationale for this clustering. Cap at 120 words. Suggested format: Edits in [Section] about [core concept]. [Key pattern]. [Impact].',
           },
         },
       },
