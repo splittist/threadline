@@ -3,7 +3,7 @@
  */
 
 import { XMLParser } from 'fast-xml-parser'
-import type { TrackedChange, ChangeType, Paragraph, HeadingNode } from '../types/docx'
+import type { TrackedChange, ChangeType, Paragraph, HeadingNode, TextRun } from '../types/docx'
 
 // Type definitions for XML parsed structures
 interface XmlElement {
@@ -176,8 +176,9 @@ function parseTrackedChange(
                    ''
   const timestamp = normalizeTimestamp(dateUtc)
 
-  // Extract text content
+  // Extract text content and formatted text runs
   const changedText = extractTextFromElement(changeEl)
+  const textRuns = extractTextRunsFromElement(changeEl)
 
   // Find clause path for this paragraph
   const clausePath = findClausePathForParagraph(paragraphId, paragraphs, headings)
@@ -193,6 +194,7 @@ function parseTrackedChange(
     timestamp,
     originalId,
     changedText,
+    textRuns,
     textBefore,
     textAfter,
     clausePath,
@@ -251,6 +253,72 @@ function extractTextFromElement(element: XmlElement): string {
   }
 
   return textParts.join('')
+}
+
+/**
+ * Extract text runs with formatting from a tracked change element
+ */
+function extractTextRunsFromElement(element: XmlElement): TextRun[] {
+  const textRuns: TextRun[] = []
+
+  // Look for run elements
+  let runElements = element.r as XmlElement[] | XmlElement | undefined
+  if (!runElements) {
+    return textRuns
+  }
+
+  // Ensure it's an array
+  if (!Array.isArray(runElements)) {
+    runElements = [runElements]
+  }
+
+  // Extract text and formatting from each run
+  for (const rEl of runElements) {
+    // Get run properties (rPr) for formatting
+    const rPr = rEl.rPr as XmlElement | undefined
+    const bold = !!rPr?.b
+    const italic = !!rPr?.i
+
+    // Check for regular text element (w:t)
+    const textElement = rEl.t as XmlElement[] | XmlElement | string | undefined
+    if (textElement !== undefined) {
+      // Ensure it's an array
+      const textElements = Array.isArray(textElement) ? textElement : [textElement]
+
+      for (const tEl of textElements) {
+        // The text content is stored as #text or directly in the element
+        const text = typeof tEl === 'string' ? tEl : ((tEl['#text'] as string) || '')
+        if (text) {
+          textRuns.push({
+            text,
+            bold: bold || undefined,
+            italic: italic || undefined,
+          })
+        }
+      }
+    }
+
+    // Check for deleted text element (w:delText) used in deletions
+    const delTextElement = rEl.delText as XmlElement[] | XmlElement | string | undefined
+    if (delTextElement !== undefined) {
+      // Ensure it's an array
+      const delTextElements = Array.isArray(delTextElement) ? delTextElement : [delTextElement]
+
+      for (const dtEl of delTextElements) {
+        // The text content is stored as #text or directly in the element
+        const text = typeof dtEl === 'string' ? dtEl : ((dtEl['#text'] as string) || '')
+        if (text) {
+          textRuns.push({
+            text,
+            bold: bold || undefined,
+            italic: italic || undefined,
+          })
+        }
+      }
+    }
+  }
+
+  return textRuns
 }
 
 /**

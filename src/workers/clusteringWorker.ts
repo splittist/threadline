@@ -47,6 +47,7 @@ async function performClustering(
       clausePath: c.clausePath,
       textBefore: c.textBefore,
       changedText: c.changedText,
+      textRuns: [], // Empty array for clustering purposes
       textAfter: c.textAfter,
       threadId: null,
       suggestedThread: null,

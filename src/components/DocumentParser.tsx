@@ -56,6 +56,7 @@ export function DocumentParser() {
           clausePath: tc.clausePath,
           textBefore: tc.textBefore,
           changedText: tc.changedText,
+          textRuns: tc.textRuns,
           textAfter: tc.textAfter,
           threadId: null, // Initially unassigned
           suggestedThread: null, // Will be set by clustering in Phase 2

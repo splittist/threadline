@@ -57,6 +57,7 @@ describe('ChangeListPanel', () => {
         clausePath: ['Section 1', 'Subsection 1.1'],
         textBefore: 'Before text',
         changedText: 'New text',
+      textRuns: [],
         textAfter: 'After text',
         threadId: thread.threadId,
         suggestedThread: null,
@@ -86,6 +87,7 @@ describe('ChangeListPanel', () => {
         clausePath: [],
         textBefore: '',
         changedText: 'Deleted text',
+      textRuns: [],
         textAfter: '',
         threadId: null,
         suggestedThread: null,
@@ -107,7 +109,7 @@ describe('ChangeListPanel', () => {
   })
 
   describe('Diff View and Color Coding', () => {
-    it('displays insertions with green background', () => {
+    it('displays insertions with minimal styling', () => {
       const store = useStore.getState()
 
       const change: Change = {
@@ -119,6 +121,7 @@ describe('ChangeListPanel', () => {
         clausePath: [],
         textBefore: '',
         changedText: 'Inserted text',
+      textRuns: [],
         textAfter: '',
         threadId: null,
         suggestedThread: null,
@@ -129,11 +132,12 @@ describe('ChangeListPanel', () => {
 
       const insertedText = screen.getByText('Inserted text')
       expect(insertedText).toBeInTheDocument()
-      expect(insertedText).toHaveClass('bg-green-100')
-      expect(insertedText).toHaveClass('text-green-900')
+      // Check that the parent element has correct styling
+      const parentSpan = insertedText.parentElement
+      expect(parentSpan).toHaveClass('text-gray-900')
     })
 
-    it('displays deletions with red background and strikethrough', () => {
+    it('displays deletions with strikethrough and gray text', () => {
       const store = useStore.getState()
 
       const change: Change = {
@@ -145,6 +149,7 @@ describe('ChangeListPanel', () => {
         clausePath: [],
         textBefore: '',
         changedText: 'Deleted text',
+      textRuns: [],
         textAfter: '',
         threadId: null,
         suggestedThread: null,
@@ -155,9 +160,84 @@ describe('ChangeListPanel', () => {
 
       const deletedText = screen.getByText('Deleted text')
       expect(deletedText).toBeInTheDocument()
-      expect(deletedText).toHaveClass('bg-red-100')
-      expect(deletedText).toHaveClass('text-red-900')
+      // Check that the text has strikethrough and gray styling
       expect(deletedText).toHaveClass('line-through')
+      expect(deletedText).toHaveClass('text-gray-500')
+    })
+
+    it('renders bold and italic formatting in text runs', () => {
+      const store = useStore.getState()
+
+      const change: Change = {
+        changeId: 'change1',
+        docId: 'doc1',
+        type: 'insertion',
+        author: 'Author',
+        timestamp: '2025-11-14T00:00:00Z',
+        clausePath: [],
+        textBefore: '',
+        changedText: 'Normal bold italic bold-italic',
+        textRuns: [
+          { text: 'Normal ' },
+          { text: 'bold ', bold: true },
+          { text: 'italic ', italic: true },
+          { text: 'bold-italic', bold: true, italic: true },
+        ],
+        textAfter: '',
+        threadId: null,
+        suggestedThread: null,
+      }
+      store.addChange(change)
+
+      render(<ChangeListPanel />)
+
+      // Check the full change text is present
+      expect(screen.getByText('Normal', { exact: false })).toBeInTheDocument()
+      
+      // Get the container and check structure using querySelector
+      const container = screen.getByText('Normal').closest('.text-sm')
+      expect(container).toBeInTheDocument()
+      
+      // Check for bold elements
+      const boldElements = container?.querySelectorAll('.font-bold')
+      expect(boldElements?.length).toBeGreaterThanOrEqual(2)
+      
+      // Check for italic elements
+      const italicElements = container?.querySelectorAll('.italic')
+      expect(italicElements?.length).toBeGreaterThanOrEqual(2)
+    })
+
+    it('renders bold and italic formatting in deletions', () => {
+      const store = useStore.getState()
+
+      const change: Change = {
+        changeId: 'change1',
+        docId: 'doc1',
+        type: 'deletion',
+        author: 'Author',
+        timestamp: '2025-11-14T00:00:00Z',
+        clausePath: [],
+        textBefore: '',
+        changedText: 'Deleted bold text',
+        textRuns: [
+          { text: 'Deleted ' },
+          { text: 'bold', bold: true },
+          { text: ' text' },
+        ],
+        textAfter: '',
+        threadId: null,
+        suggestedThread: null,
+      }
+      store.addChange(change)
+
+      render(<ChangeListPanel />)
+
+      // Check that bold text in deletion has both bold and strikethrough
+      const boldText = screen.getByText('bold')
+      expect(boldText).toBeInTheDocument()
+      expect(boldText).toHaveClass('font-bold')
+      expect(boldText).toHaveClass('line-through')
+      expect(boldText).toHaveClass('text-gray-500')
     })
 
     it('displays change type badges', () => {
@@ -173,6 +253,7 @@ describe('ChangeListPanel', () => {
           clausePath: [],
           textBefore: '',
           changedText: 'Text 1',
+      textRuns: [],
           textAfter: '',
           threadId: null,
           suggestedThread: null,
@@ -186,6 +267,7 @@ describe('ChangeListPanel', () => {
           clausePath: [],
           textBefore: '',
           changedText: 'Text 2',
+      textRuns: [],
           textAfter: '',
           threadId: null,
           suggestedThread: null,
@@ -212,6 +294,7 @@ describe('ChangeListPanel', () => {
         clausePath: ['8', 'Termination', '8.2 Force Majeure'],
         textBefore: '',
         changedText: 'Text',
+      textRuns: [],
         textAfter: '',
         threadId: null,
         suggestedThread: null,
@@ -241,6 +324,7 @@ describe('ChangeListPanel', () => {
         clausePath: [],
         textBefore: 'This is the text before the change.',
         changedText: 'New text',
+      textRuns: [],
         textAfter: 'This is the text after the change.',
         threadId: null,
         suggestedThread: null,
@@ -281,6 +365,7 @@ describe('ChangeListPanel', () => {
           clausePath: ['Termination'],
           textBefore: '',
           changedText: 'Termination clause text',
+      textRuns: [],
           textAfter: '',
           threadId: null,
           suggestedThread: null,
@@ -294,6 +379,7 @@ describe('ChangeListPanel', () => {
           clausePath: ['Payment'],
           textBefore: '',
           changedText: 'Payment terms text',
+      textRuns: [],
           textAfter: '',
           threadId: null,
           suggestedThread: null,
@@ -354,6 +440,7 @@ describe('ChangeListPanel', () => {
           clausePath: [],
           textBefore: '',
           changedText: 'Change 1',
+      textRuns: [],
           textAfter: '',
           threadId: null,
           suggestedThread: null,
@@ -367,6 +454,7 @@ describe('ChangeListPanel', () => {
           clausePath: [],
           textBefore: '',
           changedText: 'Change 2',
+      textRuns: [],
           textAfter: '',
           threadId: null,
           suggestedThread: null,
@@ -467,6 +555,7 @@ describe('ChangeListPanel', () => {
           clausePath: [],
           textBefore: '',
           changedText: 'Change 1',
+      textRuns: [],
           textAfter: '',
           threadId: thread1.threadId,
           suggestedThread: null,
@@ -480,6 +569,7 @@ describe('ChangeListPanel', () => {
           clausePath: [],
           textBefore: '',
           changedText: 'Change 2',
+      textRuns: [],
           textAfter: '',
           threadId: thread1.threadId,
           suggestedThread: null,
@@ -569,6 +659,7 @@ describe('ChangeListPanel', () => {
           clausePath: [],
           textBefore: '',
           changedText: 'Change 1',
+      textRuns: [],
           textAfter: '',
           threadId: null,
           suggestedThread: null,
